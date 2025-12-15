@@ -1,0 +1,5 @@
+{"location":"next.config.js:1","message":"Next.js config loaded","data":{"reactStrictMode":true},"timestamp":1765830266681,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"next.config.js:1","message":"Next.js config loaded","data":{"reactStrictMode":true},"timestamp":1765830266681,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"check-versions.js:10","message":"Package.json versions","data":{"supabaseSsr":"^0.5.1","supabaseJs":"^2.39.0"},"hypothesisId":"A","timestamp":1765830278255,"sessionId":"debug-session","runId":"run1"}
+{"location":"check-versions.js:18","message":"Installed versions from package-lock","data":{"ssrVersion":"0.5.2","jsVersion":"2.87.3"},"hypothesisId":"A","timestamp":1765830278256,"sessionId":"debug-session","runId":"run1"}
+{"location":"check-versions.js:25","message":"All @supabase/supabase-js entries","data":{"entries":["node_modules/@supabase/supabase-js"],"count":1},"hypothesisId":"B","timestamp":1765830278256,"sessionId":"debug-session","runId":"run1"}
