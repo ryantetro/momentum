@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toaster"
 import { Copy, Check, Send } from "lucide-react"
+import { ProposalEmailTemplate } from "./proposal-email-template"
 
 interface GenerateProposalButtonProps {
   bookingId: string
@@ -16,8 +17,49 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
   const [loading, setLoading] = useState(false)
   const [portalUrl, setPortalUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [clientName, setClientName] = useState<string | null>(null)
+  const [photographerName, setPhotographerName] = useState<string | null>(null)
+  const [serviceType, setServiceType] = useState<string | null>(null)
   const supabase = createClient()
   const { toast } = useToast()
+
+  // Check if proposal has already been generated on mount
+  useEffect(() => {
+    const checkProposalStatus = async () => {
+      try {
+        const [bookingResult, photographerResult] = await Promise.all([
+          supabase
+            .from("bookings")
+            .select("portal_token, service_type, clients(*)")
+            .eq("id", bookingId)
+            .single(),
+          supabase
+            .from("photographers")
+            .select("business_name, email")
+            .eq("id", photographerId)
+            .single(),
+        ])
+
+        const booking = bookingResult.data
+        const photographer = photographerResult.data
+
+        if (booking && booking.portal_token && photographer) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+          const url = `${baseUrl}/portal/${booking.portal_token}`
+          setPortalUrl(url)
+
+          const client = booking.clients as any
+          setClientName(client?.name || "Client")
+          setPhotographerName(photographer.business_name || photographer.email || "Photographer")
+          setServiceType(booking.service_type)
+        }
+      } catch (error) {
+        // Silently fail - proposal may not exist yet
+      }
+    }
+
+    checkProposalStatus()
+  }, [bookingId, photographerId, supabase])
 
   const handleGenerate = async () => {
     setLoading(true)
@@ -36,10 +78,10 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
         return
       }
 
-      // Get photographer's contract template
+      // Get photographer's contract template and business info
       const { data: photographer, error: photographerError } = await supabase
         .from("photographers")
-        .select("contract_template")
+        .select("contract_template, business_name, email")
         .eq("id", photographerId)
         .single()
 
@@ -91,6 +133,12 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
       const url = `${baseUrl}/portal/${booking.portal_token}`
       setPortalUrl(url)
 
+      // Store data for email template
+      const client = booking.clients as any
+      setClientName(client?.name || "Client")
+      setPhotographerName(photographer.business_name || photographer.email || "Photographer")
+      setServiceType(booking.service_type)
+
       toast({ title: "Proposal link generated successfully!" })
     } catch (error: any) {
       toast({
@@ -121,54 +169,64 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Proposal Link</CardTitle>
-        <CardDescription>
-          Generate a secure link to send to your client for contract signing and payment
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!portalUrl ? (
-          <Button onClick={handleGenerate} disabled={loading} className="w-full">
-            <Send className="mr-2 h-4 w-4" />
-            {loading ? "Generating..." : "Generate & Send Proposal Link"}
-          </Button>
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-muted p-4">
-              <p className="text-sm font-medium mb-2">Client Portal Link:</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs break-all bg-background px-2 py-1 rounded">
-                  {portalUrl}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopy}
-                  className="shrink-0"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </>
-                  )}
-                </Button>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Proposal Link</CardTitle>
+          <CardDescription>
+            Generate a secure link to send to your client for contract signing and payment
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!portalUrl ? (
+            <Button onClick={handleGenerate} disabled={loading} className="w-full">
+              <Send className="mr-2 h-4 w-4" />
+              {loading ? "Generating..." : "Generate & Send Proposal Link"}
+            </Button>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted p-4">
+                <p className="text-sm font-medium mb-2">Client Portal Link:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs break-all bg-background px-2 py-1 rounded">
+                    {portalUrl}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopy}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Send this link to your client via email. They can use it to sign the contract and make the deposit payment.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Send this link to your client via email. They can use it to sign the contract and make the deposit payment.
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+      {portalUrl && clientName && photographerName && serviceType && (
+        <ProposalEmailTemplate
+          clientName={clientName}
+          photographerName={photographerName}
+          serviceType={serviceType}
+          portalUrl={portalUrl}
+        />
+      )}
+    </>
   )
 }
 

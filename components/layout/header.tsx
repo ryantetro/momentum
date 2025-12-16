@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
@@ -24,18 +23,23 @@ export function Header() {
     }
   }, [user, supabase])
 
+  // Extract first name from email
+  const getFirstName = () => {
+    if (!user?.email) return null
+    const emailName = user.email.split("@")[0]
+    // Split by common separators and take first part
+    const firstName = emailName.split(/[._-]/)[0]
+    // Capitalize first letter
+    return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
+  }
+
+  const firstName = getFirstName()
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
       <div className="flex items-center gap-4">
-        <Image
-          src="/logo.png"
-          alt="Momentum Logo"
-          width={32}
-          height={32}
-          className="object-contain"
-        />
         <h2 className="text-lg font-semibold">
-          {photographer?.business_name || "Welcome"}
+          {photographer?.business_name || (firstName ? `Welcome ${firstName}` : "Welcome")}
         </h2>
       </div>
       <div className="flex items-center gap-4">

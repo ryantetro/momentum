@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
+import { EnablePaymentsButton } from "@/components/dashboard/enable-payments-button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -61,6 +63,17 @@ export default async function DashboardPage() {
           Overview of your photography business
         </p>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Processing</CardTitle>
+          <CardDescription>
+            Enable Stripe Connect to start accepting payments from your clients
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EnablePaymentsButton />
+        </CardContent>
+      </Card>
       <StatsCards
         totalClients={totalClients}
         totalBookings={totalBookings}

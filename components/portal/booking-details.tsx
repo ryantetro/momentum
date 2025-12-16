@@ -41,3 +41,4 @@ export function BookingDetails({ booking, client }: BookingDetailsProps) {
   )
 }
 
+

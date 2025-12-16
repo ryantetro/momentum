@@ -9,6 +9,7 @@ import {
   Calendar, 
   FileText,
   Settings,
+  CreditCard,
   LogOut 
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -22,6 +23,7 @@ const navigation = [
   { name: "Bookings", href: "/bookings", icon: Calendar },
   { name: "Contracts", href: "/contracts", icon: FileText },
   { name: "Settings", href: "/settings/contract", icon: Settings },
+  { name: "Payment", href: "/settings/payment", icon: CreditCard },
 ]
 
 export function Sidebar() {

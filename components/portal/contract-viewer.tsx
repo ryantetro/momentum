@@ -39,8 +39,24 @@ export function ContractViewer({ booking, client }: ContractViewerProps) {
         <div className="prose max-w-none whitespace-pre-wrap">
           {contractText}
         </div>
+        {booking.contract_signed_at && (
+          <div className="mt-6 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              Signed by <span className="font-medium">{booking.client_signature_name || booking.contract_signed_by}</span> on{" "}
+              <span className="font-medium">
+                {format(new Date(booking.contract_signed_at), "MMMM d, yyyy 'at' h:mm a")}
+              </span>
+              {booking.signature_ip_address && booking.signature_ip_address !== "Unknown" && (
+                <>
+                  {" "}from IP <span className="font-medium font-mono">{booking.signature_ip_address}</span>
+                </>
+              )}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
 }
+
 

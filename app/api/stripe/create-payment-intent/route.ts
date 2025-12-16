@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Get booking
+      // Get booking first
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .select("*")
@@ -33,13 +33,36 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Calculate amount with transaction fee
-      const baseAmount = parseFloat(amount)
-      const transactionFee = baseAmount * TRANSACTION_FEE_PERCENTAGE
-      const totalAmount = baseAmount + transactionFee
+      // Get photographer's Stripe account
+      const { data: photographer, error: photographerError } = await supabase
+        .from("photographers")
+        .select("stripe_account_id")
+        .eq("id", booking.photographer_id)
+        .single()
 
-      // Create Stripe Checkout Session
-      const session = await stripe.checkout.sessions.create({
+      if (photographerError || !photographer) {
+        return NextResponse.json(
+          { error: "Photographer not found" },
+          { status: 404 }
+        )
+      }
+
+      if (!photographer.stripe_account_id) {
+        return NextResponse.json(
+          { error: "Photographer has not connected Stripe account. Please enable payments in settings." },
+          { status: 400 }
+        )
+      }
+
+      // Calculate amounts
+      const baseAmount = parseFloat(amount)
+      const momentumFee = baseAmount * TRANSACTION_FEE_PERCENTAGE // 3.5% Momentum fee
+      // Client pays: baseAmount + momentumFee
+      // Photographer receives: baseAmount (exactly what they invoiced)
+      const totalAmount = baseAmount + momentumFee
+
+      // Create Stripe Checkout Session with Stripe Connect
+      const sessionConfig: any = {
         payment_method_types: ["card"],
         line_items: [
           {
@@ -62,16 +85,25 @@ export async function POST(request: NextRequest) {
           type: "deposit",
           photographerId: booking.photographer_id,
           baseAmount: baseAmount.toString(),
-          transactionFee: transactionFee.toString(),
+          transactionFee: momentumFee.toString(),
         },
-      })
+        payment_intent_data: {
+          application_fee_amount: Math.round(momentumFee * 100), // Momentum's 3.5% fee in cents
+          on_behalf_of: photographer.stripe_account_id,
+          transfer_data: {
+            destination: photographer.stripe_account_id,
+          },
+        },
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig)
 
       return NextResponse.json({
         sessionId: session.id,
         url: session.url,
         amount: totalAmount,
         baseAmount,
-        transactionFee,
+        transactionFee: momentumFee,
       })
     }
 
@@ -115,21 +147,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate amount with transaction fee
-    const baseAmount = milestone.amount
-    const transactionFee = baseAmount * TRANSACTION_FEE_PERCENTAGE
-    const totalAmount = baseAmount + transactionFee
+    // Get photographer's Stripe account ID
+    const { data: photographer, error: photographerError } = await supabase
+      .from("photographers")
+      .select("stripe_account_id")
+      .eq("id", booking.photographer_id)
+      .single()
 
-    // Create payment intent
+    if (photographerError || !photographer) {
+      return NextResponse.json(
+        { error: "Photographer not found" },
+        { status: 404 }
+      )
+    }
+
+    if (!photographer.stripe_account_id) {
+      return NextResponse.json(
+        { error: "Photographer has not connected Stripe account. Please enable payments in settings." },
+        { status: 400 }
+      )
+    }
+
+    // Calculate amounts
+    const baseAmount = milestone.amount
+    const momentumFee = baseAmount * TRANSACTION_FEE_PERCENTAGE // 3.5% Momentum fee
+    // Client pays: baseAmount + momentumFee
+    // Photographer receives: baseAmount (exactly what they invoiced)
+    const totalAmount = baseAmount + momentumFee
+
+    // Create payment intent with Stripe Connect
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalAmount * 100), // Convert to cents
       currency: "usd",
+      application_fee_amount: Math.round(momentumFee * 100), // Momentum's 3.5% fee in cents
+      on_behalf_of: photographer.stripe_account_id,
+      transfer_data: {
+        destination: photographer.stripe_account_id,
+      },
       metadata: {
         bookingId,
         milestoneId,
         photographerId: booking.photographer_id,
         baseAmount: baseAmount.toString(),
-        transactionFee: transactionFee.toString(),
+        transactionFee: momentumFee.toString(),
       },
     })
 
@@ -149,7 +209,7 @@ export async function POST(request: NextRequest) {
       clientSecret: paymentIntent.client_secret,
       amount: totalAmount,
       baseAmount,
-      transactionFee,
+      transactionFee: momentumFee,
     })
   } catch (error: any) {
     console.error("Error creating payment intent:", error)

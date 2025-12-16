@@ -13,9 +13,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Extract IP address from request headers
+    const ipAddress =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "Unknown"
+
+    // Extract User Agent from request headers
+    const userAgent = request.headers.get("user-agent") || "Unknown"
+
     const supabase = await createClient()
 
-    // Update booking with new schema fields
+    // Update booking with new schema fields including audit trail
     const { error } = await supabase
       .from("bookings")
       .update({
@@ -23,6 +32,8 @@ export async function POST(request: NextRequest) {
         contract_signed_at: new Date().toISOString(),
         contract_signed_by: clientName,
         client_signature_name: clientName,
+        signature_ip_address: ipAddress,
+        signature_user_agent: userAgent,
         status: "contract_signed",
       })
       .eq("id", bookingId)

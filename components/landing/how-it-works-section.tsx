@@ -1,30 +1,33 @@
 "use client"
 
-import { Calendar, Send, DollarSign, ArrowRight } from "lucide-react"
+import { CreditCard, Link2, Zap, ArrowRight } from "lucide-react"
 import { ScrollAnimation } from "./scroll-animation"
 
 const steps = [
   {
     number: "1",
-    icon: Calendar,
-    title: "Create Booking",
-    description: "Set up your booking with contract template and payment milestones",
+    icon: CreditCard,
+    title: "Connect Your Business",
+    description: "Click 'Enable Payments' in your dashboard. You'll be redirected to our secure partner, Stripe, to link your bank account. Don't have a Stripe account? No problem—you can create one in under 2 minutes during the setup.",
+    benefit: "Instant credibility and professional-grade security for your clients.",
     glowColor: "from-blue-500/30 to-blue-400/20",
     iconBg: "bg-blue-600",
   },
   {
     number: "2",
-    icon: Send,
-    title: "Send Portal Link",
-    description: "Client receives secure portal access to view and sign contracts",
+    icon: Link2,
+    title: "Send a Momentum Link",
+    description: "Instead of juggling three apps, just enter the shoot details and click 'Generate Proposal.' Send that one link to your client via email or DM.",
+    benefit: "Your client sees a beautiful, branded portal where they can read your contract, e-sign, and see their payment schedule all in one place.",
     glowColor: "from-amber-500/30 to-amber-400/20",
     iconBg: "bg-amber-500",
   },
   {
     number: "3",
-    icon: DollarSign,
-    title: "Get Paid",
-    description: "Client signs contract and pays automatically through the portal",
+    icon: Zap,
+    title: "Get Paid on Autopilot",
+    description: "Once the client signs, Momentum automatically prompts them for the deposit. We handle the math, the reminders, and the transaction fees. The funds are split automatically: your 96.5% goes straight to your bank, and the small fee is added to the client's total.",
+    benefit: "You get 100% of your requested service fee. No more 'losing' 3% to processing costs.",
     glowColor: "from-blue-500/30 to-blue-400/20",
     iconBg: "bg-blue-600",
   },
@@ -40,7 +43,7 @@ export function HowItWorksSection() {
               How It Works
             </h2>
             <p className="text-lg text-muted-foreground">
-              Get started in three simple steps
+              Three steps to total administrative freedom
             </p>
           </div>
         </ScrollAnimation>
@@ -75,9 +78,18 @@ export function HowItWorksSection() {
                     </h3>
                     
                     {/* Description */}
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed mb-3">
                       {step.description}
                     </p>
+                    
+                    {/* Benefit */}
+                    {step.benefit && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          The Benefit: <span className="text-muted-foreground font-normal">{step.benefit}</span>
+                        </p>
+                      </div>
+                    )}
                     </div>
                   </ScrollAnimation>
                   

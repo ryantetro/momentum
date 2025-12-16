@@ -4,6 +4,7 @@ export interface Photographer {
   business_name: string | null
   email: string
   contract_template: string | null
+  stripe_account_id: string | null
   created_at: string
   updated_at: string
 }
@@ -42,6 +43,8 @@ export interface Booking {
   contract_signed_at: string | null
   contract_signed_by: string | null
   client_signature_name: string | null
+  signature_ip_address: string | null
+  signature_user_agent: string | null
   payment_milestones: PaymentMilestone[]
   payment_status: "pending" | "partial" | "paid" | "overdue" | "PENDING_DEPOSIT" | "DEPOSIT_PAID"
   deposit_amount: number | null

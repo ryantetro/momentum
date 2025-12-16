@@ -53,3 +53,4 @@ export function RecentActivity({ bookings }: RecentActivityProps) {
   )
 }
 
+

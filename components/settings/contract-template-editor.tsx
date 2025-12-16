@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toaster"
+import { AIContractInsights } from "./ai-contract-insights"
 
 export function ContractTemplateEditor() {
   const [template, setTemplate] = useState("")
@@ -92,31 +93,35 @@ export function ContractTemplateEditor() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Contract Template</CardTitle>
-        <CardDescription>
-          Create your contract template. Use placeholders like {"{{client_name}}"}, {"{{event_date}}"}, {"{{total_price}}"}, and {"{{service_type}}"} that will be replaced when generating proposals.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <textarea
-            value={template}
-            onChange={(e) => setTemplate(e.target.value)}
-            rows={20}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Enter your contract template here. Use placeholders: {{client_name}}, {{event_date}}, {{total_price}}, {{service_type}}"
-          />
-          <p className="text-xs text-muted-foreground">
-            Available placeholders: {"{{client_name}}"}, {"{{event_date}}"}, {"{{total_price}}"}, {"{{service_type}}"}
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Template"}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="grid gap-6 md:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Contract Template</CardTitle>
+          <CardDescription>
+            Create your contract template. Use placeholders like {"{{client_name}}"}, {"{{event_date}}"}, {"{{total_price}}"}, and {"{{service_type}}"} that will be replaced when generating proposals.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <textarea
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              rows={20}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+              placeholder="Enter your contract template here. Use placeholders: {{client_name}}, {{event_date}}, {{total_price}}, {{service_type}}"
+            />
+            <p className="text-xs text-muted-foreground">
+              Available placeholders: {"{{client_name}}"}, {"{{event_date}}"}, {"{{total_price}}"}, {"{{service_type}}"}
+            </p>
+          </div>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Template"}
+          </Button>
+        </CardContent>
+      </Card>
+      <AIContractInsights contractText={template} />
+    </div>
   )
 }
+
 

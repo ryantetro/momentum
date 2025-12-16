@@ -49,3 +49,4 @@ export function StatsCards({ totalClients, totalBookings, pendingPayments }: Sta
   )
 }
 
+

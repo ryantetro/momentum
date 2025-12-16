@@ -62,3 +62,4 @@ export function ClientsTable({ clients }: ClientsTableProps) {
   )
 }
 
+

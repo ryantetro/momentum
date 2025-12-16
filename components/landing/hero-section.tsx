@@ -7,7 +7,7 @@ import { MockDashboard } from "./mock-dashboard"
 
 export function HeroSection() {
   return (
-    <section className="container mx-auto px-4 py-20 md:py-32 relative">
+    <section className="container mx-auto px-4 pt-8 md:pt-12 pb-20 md:pb-32 relative">
       <div className="mx-auto max-w-7xl relative z-10">
         <div className="max-w-3xl mx-auto text-center">
           <ScrollAnimation>
