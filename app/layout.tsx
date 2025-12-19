@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Playfair_Display, Cormorant_Garamond, DM_Sans } from "next/font/google"
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { ToastProvider } from "@/components/ui/toaster"
