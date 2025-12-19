@@ -6,7 +6,10 @@ import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toaster"
 import { ContractTemplateEditor } from "./contract-template-editor"
-import { Loader2, Info } from "lucide-react"
+import { ContractGenerator } from "./contract-generator"
+import { ContractUploader } from "./contract-uploader"
+import { Loader2, Info, Wand2, FileText, Upload, Settings2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { Photographer } from "@/types"
 
 const PLACEHOLDERS = [
@@ -21,6 +24,8 @@ export function ContractDefaultsTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [requireSignatureAudit, setRequireSignatureAudit] = useState(true)
+  const [activeMode, setActiveMode] = useState<"generate" | "edit" | "upload">("edit")
+  const [template, setTemplate] = useState("")
   const supabase = createClient()
   const { toast } = useToast()
 
@@ -42,6 +47,7 @@ export function ContractDefaultsTab() {
         if (data) {
           setPhotographer(data)
           setRequireSignatureAudit(data.require_signature_audit ?? true)
+          setTemplate(data.contract_template || "")
         }
       } catch (error) {
         console.error("Error fetching photographer:", error)
@@ -84,92 +90,156 @@ export function ContractDefaultsTab() {
     }
   }
 
+  const handleContractUpdated = (newContent: string) => {
+    setTemplate(newContent)
+    setActiveMode("edit")
+  }
+
   if (loading) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center text-muted-foreground">Loading...</div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
+      </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Contract Template Editor */}
-      <ContractTemplateEditor />
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-serif text-stone-900">Document Management Center</h2>
+          <p className="text-stone-500">Configure your master contract templates and legal safeguards</p>
+        </div>
 
-      {/* Signature Requirements */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Signature Requirements</CardTitle>
-          <CardDescription>
-            Configure how contract signatures are tracked and verified
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 space-y-1">
-              <Label htmlFor="signature-audit" className="text-base font-semibold">
-                Require IP & Timestamp tracking on all signatures
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                When enabled, all contract signatures will include IP address, timestamp, and user
-                agent information for legal protection and audit trails.
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                id="signature-audit"
-                checked={requireSignatureAudit}
-                onChange={(e) => {
-                  setRequireSignatureAudit(e.target.checked)
-                  handleSaveSignatureSetting()
-                }}
-                disabled={saving}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50"></div>
-            </label>
-          </div>
-          {saving && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Saving...
+        {/* Mode Switcher */}
+        <div className="flex items-center bg-stone-100 p-1 rounded-lg self-start">
+          <button
+            onClick={() => setActiveMode("generate")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
+              activeMode === "generate"
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-stone-500 hover:text-stone-700"
+            )}
+          >
+            <Wand2 className="h-4 w-4" />
+            AI Generate
+          </button>
+          <button
+            onClick={() => setActiveMode("edit")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
+              activeMode === "edit"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-stone-500 hover:text-stone-700"
+            )}
+          >
+            <FileText className="h-4 w-4" />
+            Edit Template
+          </button>
+          <button
+            onClick={() => setActiveMode("upload")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
+              activeMode === "upload"
+                ? "bg-white text-stone-900 shadow-sm"
+                : "text-stone-500 hover:text-stone-700"
+            )}
+          >
+            <Upload className="h-4 w-4" />
+            Upload PDF/Doc
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Main Content Area */}
+        <div className="lg:col-span-12">
+          {activeMode === "generate" && (
+            <div className="max-w-3xl mx-auto">
+              <ContractGenerator onContractGenerated={handleContractUpdated} />
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Placeholder Reference */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Info className="h-5 w-5" />
-            Available Placeholders
-          </CardTitle>
-          <CardDescription>
-            Use these placeholders in your contract template. They will be automatically replaced
-            with actual values when generating proposals.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {PLACEHOLDERS.map((placeholder) => (
-              <div
-                key={placeholder.key}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-muted/50"
-              >
-                <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
-                  {placeholder.key}
-                </code>
-                <p className="text-sm text-muted-foreground flex-1">{placeholder.description}</p>
+          {activeMode === "edit" && (
+            <ContractTemplateEditor
+              initialTemplate={template}
+              onSave={(newTemplate: string) => setTemplate(newTemplate)}
+            />
+          )}
+
+          {activeMode === "upload" && (
+            <div className="max-w-3xl mx-auto">
+              <ContractUploader onContractParsed={handleContractUpdated} />
+            </div>
+          )}
+        </div>
+
+        {/* Legal Settings Sidebar/Bottom */}
+        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Signature Requirements */}
+          <Card className="border-stone-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-stone-600" />
+                Legal Safeguards
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor="signature-audit" className="text-sm font-semibold text-stone-800">
+                    IP & Timestamp Tracking
+                  </Label>
+                  <p className="text-xs text-stone-500">
+                    Include IP address and timestamp on all signatures for legal audit trails.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="signature-audit"
+                    checked={requireSignatureAudit}
+                    onChange={(e) => {
+                      setRequireSignatureAudit(e.target.checked)
+                      handleSaveSignatureSetting()
+                    }}
+                    disabled={saving}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50"></div>
+                </label>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          {/* Placeholder Reference */}
+          <Card className="border-stone-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Info className="h-5 w-5 text-stone-600" />
+                Dynamic Variables
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
+                {PLACEHOLDERS.map((placeholder) => (
+                  <div
+                    key={placeholder.key}
+                    className="flex flex-col p-2 rounded border border-stone-100 bg-stone-50/50"
+                  >
+                    <code className="text-[10px] font-mono text-blue-600 mb-1">
+                      {placeholder.key}
+                    </code>
+                    <span className="text-[10px] text-stone-500 uppercase tracking-wider">{placeholder.description}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

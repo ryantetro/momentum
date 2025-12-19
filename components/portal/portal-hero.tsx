@@ -15,7 +15,7 @@ interface PortalHeroProps {
 export function PortalHero({ client, booking, photographer, isSigned }: PortalHeroProps) {
   const photographerName =
     photographer?.business_name || photographer?.studio_name || photographer?.email || "Photographer"
-  
+
   const capitalizedServiceType =
     booking.service_type.charAt(0).toUpperCase() + booking.service_type.slice(1)
 
@@ -23,7 +23,7 @@ export function PortalHero({ client, booking, photographer, isSigned }: PortalHe
   const heroImageUrl = (photographer as any)?.hero_image_url || null
 
   return (
-    <div className="relative w-full h-[500px] md:h-[600px] overflow-hidden">
+    <div className="relative w-full h-[450px] md:h-[600px] overflow-hidden">
       {/* Background Image or Gradient */}
       {heroImageUrl ? (
         <Image
@@ -36,10 +36,10 @@ export function PortalHero({ client, booking, photographer, isSigned }: PortalHe
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700" />
       )}
-      
+
       {/* Dark Overlay Gradient for Text Legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
-      
+
       {/* Photographer Logo Overlay (top left) */}
       {photographer?.logo_url && (
         <motion.div
@@ -63,12 +63,12 @@ export function PortalHero({ client, booking, photographer, isSigned }: PortalHe
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="absolute bottom-32 left-0 right-0 px-6 md:px-12 z-10"
+        className="absolute bottom-40 md:bottom-64 left-0 right-0 px-6 md:px-12 z-10"
       >
-        <h1 className="text-4xl md:text-6xl font-serif font-bold text-white mb-3 drop-shadow-lg">
+        <h1 className="text-3xl md:text-6xl font-serif font-bold text-white mb-3 drop-shadow-lg leading-tight">
           Welcome, {client.name}!
         </h1>
-        <p className="text-xl md:text-2xl text-stone-100 font-light drop-shadow-md">
+        <p className="text-lg md:text-2xl text-stone-100 font-light drop-shadow-md">
           Your proposal for your <strong className="font-semibold">{capitalizedServiceType}</strong> is ready for review.
         </p>
       </motion.div>
@@ -80,7 +80,7 @@ export function PortalHero({ client, booking, photographer, isSigned }: PortalHe
         transition={{ duration: 0.6, delay: 0.4 }}
         className="absolute bottom-0 left-0 right-0 px-6 md:px-12 pb-8 z-10"
       >
-        <div className="backdrop-blur-md bg-white/90 rounded-2xl shadow-2xl border border-white/20 p-6 md:p-8">
+        <div className="backdrop-blur-md bg-white/90 rounded-2xl shadow-2xl border border-white/20 p-4 md:p-8">
           <ProgressIndicator booking={booking} isSigned={isSigned} />
         </div>
       </motion.div>

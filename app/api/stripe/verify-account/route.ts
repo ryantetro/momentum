@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.substring(7)
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      
+
       // Validate token using Supabase REST API directly
       try {
         const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
         if (response.ok) {
           const userData = await response.json()
           user = userData
-          
+
           // Create a client with the token for database operations
           const { createClient: createSupabaseClient } = await import("@supabase/supabase-js")
           supabase = createSupabaseClient(
-            supabaseUrl,
+            supabaseUrl!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
               global: {
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     if (!photographer.stripe_account_id) {
       return NextResponse.json(
-        { 
+        {
           error: "No Stripe account found",
           charges_enabled: false,
           details_submitted: false,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     // Retrieve Stripe account to check status
     try {
-      const account = await stripe.accounts.retrieve(photographer.stripe_account_id)
+      const account = await stripe.accounts.retrieve(photographer.stripe_account_id) as any
 
       // Extract requirements data
       const requirements = account.requirements || {}
@@ -132,11 +132,11 @@ export async function GET(request: NextRequest) {
       })
     } catch (stripeError: any) {
       console.error("Error retrieving Stripe account:", stripeError)
-      
+
       // If account doesn't exist or wrong mode, return appropriate error
       if (stripeError.code === 'resource_missing') {
         return NextResponse.json(
-          { 
+          {
             error: "Stripe account not found",
             charges_enabled: false,
             details_submitted: false,
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { 
+        {
           error: stripeError.message || "Failed to verify Stripe account",
           charges_enabled: false,
           details_submitted: false,

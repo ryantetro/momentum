@@ -72,7 +72,7 @@ export interface Booking {
   last_reminder_sent: string | null
   portal_token: string
   inquiry_message: string | null
-  status: "draft" | "contract_sent" | "contract_signed" | "payment_pending" | "completed" | "PROPOSAL_SENT" | "Inquiry"
+  status: "draft" | "contract_sent" | "contract_signed" | "payment_pending" | "completed" | "PROPOSAL_SENT" | "Inquiry" | "Active" | "Sent"
   stripe_payment_intent_id: string | null
   created_at: string
   updated_at: string

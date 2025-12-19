@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { StatsCards } from "@/components/dashboard/stats-cards"
@@ -15,7 +15,7 @@ import { useToast } from "@/components/ui/toaster"
 import Confetti from "react-confetti"
 import type { Booking, Client } from "@/types"
 
-export default function DashboardPage() {
+function DashboardContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [showConfetti, setShowConfetti] = useState(false)
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 })
-  
+
   // State for dashboard data
   const [totalClients, setTotalClients] = useState(0)
   const [totalBookings, setTotalBookings] = useState(0)
@@ -51,9 +51,9 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
         if (!session) {
           if (process.env.NODE_ENV === 'development') {
@@ -67,10 +67,10 @@ export default function DashboardPage() {
 
         // Get photographer data including launchpad checks
         const { data: photographer, error: photographerError } = await supabase
-      .from("photographers")
+          .from("photographers")
           .select("id, stripe_account_id, contract_template, username")
-      .eq("user_id", session.user.id)
-      .single()
+          .eq("user_id", session.user.id)
+          .single()
 
         if (photographerError) {
           console.error("❌ Dashboard: Photographer lookup error:", {
@@ -101,10 +101,10 @@ export default function DashboardPage() {
         }
 
         // Fetch all bookings (not just limit 10) for comprehensive stats
-      const [clientsResult, bookingsResult] = await Promise.all([
-        supabase.from("clients").select("id", { count: "exact" }).eq("photographer_id", photographer.id),
-        supabase
-          .from("bookings")
+        const [clientsResult, bookingsResult] = await Promise.all([
+          supabase.from("clients").select("id", { count: "exact" }).eq("photographer_id", photographer.id),
+          supabase
+            .from("bookings")
             .select(`
               *,
               clients (
@@ -114,7 +114,7 @@ export default function DashboardPage() {
                 phone
               )
             `)
-          .eq("photographer_id", photographer.id)
+            .eq("photographer_id", photographer.id)
             .order("created_at", { ascending: false }),
         ])
 
@@ -148,16 +148,16 @@ export default function DashboardPage() {
           // Transform data to normalize client relationship
           // Supabase returns clients as an array, but we want it as a single object
           const rawBookings = bookingsResult.data ?? []
-          const transformedBookings = rawBookings.map((booking: any) => ({
+          const transformedBookings: (Booking & { client?: Client })[] = rawBookings.map((booking: any) => ({
             ...booking,
-            client: Array.isArray(booking.clients) 
-              ? booking.clients[0] 
+            client: Array.isArray(booking.clients)
+              ? booking.clients[0]
               : booking.clients || booking.client,
           }))
-          
+
           setBookings(transformedBookings)
           setTotalBookings(transformedBookings.length)
-          
+
           if (process.env.NODE_ENV === 'development') {
             console.log(`📊 Dashboard: Total bookings: ${transformedBookings.length}`)
           }
@@ -190,20 +190,20 @@ export default function DashboardPage() {
               }
 
               const totalPrice = Number(booking.total_price) || 0
-              
+
               // Skip bookings with no price
               if (totalPrice === 0) {
                 return sum
               }
-              
+
               // Calculate total amount paid so far
               let paidAmount = 0
-              
+
               // If deposit has been paid, add it to paid amount
               if (booking.payment_status === "DEPOSIT_PAID" && booking.deposit_amount) {
                 paidAmount += Number(booking.deposit_amount)
               }
-              
+
               // Parse payment_milestones if it's a string (JSON from database)
               let milestones = booking.payment_milestones
               if (typeof milestones === 'string') {
@@ -213,7 +213,7 @@ export default function DashboardPage() {
                   milestones = []
                 }
               }
-              
+
               // Add up all paid milestones
               if (milestones && Array.isArray(milestones)) {
                 const milestonePaid = milestones.reduce(
@@ -227,10 +227,10 @@ export default function DashboardPage() {
                 )
                 paidAmount += milestonePaid
               }
-              
+
               // Calculate remaining balance
               const remaining = totalPrice - paidAmount
-              
+
               // Only add positive remaining amounts (some edge cases might have overpayments)
               return sum + Math.max(0, remaining)
             }, 0)
@@ -255,36 +255,36 @@ export default function DashboardPage() {
 
               const eventDate = new Date(booking.event_date)
               eventDate.setHours(0, 0, 0, 0)
-              
+
               // Only include future events (within next 30 days)
               // Exclude past events (those go to overdue revenue)
               const isInNext30Days = eventDate >= now && eventDate <= next30Days
-              
+
               if (!isInNext30Days) {
                 return sum
               }
-              
+
               // Include bookings that are confirmed (contract signed OR Active status)
-              const isConfirmed = 
+              const isConfirmed =
                 booking.contract_signed === true ||
                 booking.status === "Active" ||
                 booking.status === "contract_signed"
-              
+
               if (!isConfirmed) {
                 return sum
               }
-              
+
               // Calculate balance due (total_price - amount_paid)
               const totalPrice = Number(booking.total_price) || 0
-              
+
               // Calculate total amount paid so far
               let paidAmount = 0
-              
+
               // If deposit has been paid, add it to paid amount
               if (booking.payment_status === "DEPOSIT_PAID" && booking.deposit_amount) {
                 paidAmount += Number(booking.deposit_amount)
               }
-              
+
               // Parse payment_milestones if it's a string (JSON from database)
               let milestones = booking.payment_milestones
               if (typeof milestones === 'string') {
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                   milestones = []
                 }
               }
-              
+
               // Add up all paid milestones
               if (milestones && Array.isArray(milestones)) {
                 const milestonePaid = milestones.reduce(
@@ -308,10 +308,10 @@ export default function DashboardPage() {
                 )
                 paidAmount += milestonePaid
               }
-              
+
               // Calculate remaining balance
               const balanceDue = totalPrice - paidAmount
-              
+
               // Only include if there's a balance due
               if (balanceDue > 0) {
                 if (process.env.NODE_ENV === 'development') {
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                 }
                 return sum + balanceDue
               }
-              
+
               return sum
             }, 0)
             setProjectedRevenue(projected)
@@ -338,35 +338,35 @@ export default function DashboardPage() {
 
               const eventDate = new Date(booking.event_date)
               eventDate.setHours(0, 0, 0, 0)
-              
+
               // Only include past events
               const isPastEvent = eventDate < now
-              
+
               if (!isPastEvent) {
                 return sum
               }
-              
+
               // Include bookings that are confirmed (contract signed OR Active status)
-              const isConfirmed = 
+              const isConfirmed =
                 booking.contract_signed === true ||
                 booking.status === "Active" ||
                 booking.status === "contract_signed"
-              
+
               if (!isConfirmed) {
                 return sum
               }
-              
+
               // Calculate balance due (total_price - amount_paid)
               const totalPrice = Number(booking.total_price) || 0
-              
+
               // Calculate total amount paid so far
               let paidAmount = 0
-              
+
               // If deposit has been paid, add it to paid amount
               if (booking.payment_status === "DEPOSIT_PAID" && booking.deposit_amount) {
                 paidAmount += Number(booking.deposit_amount)
               }
-              
+
               // Parse payment_milestones if it's a string (JSON from database)
               let milestones = booking.payment_milestones
               if (typeof milestones === 'string') {
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                   milestones = []
                 }
               }
-              
+
               // Add up all paid milestones
               if (milestones && Array.isArray(milestones)) {
                 const milestonePaid = milestones.reduce(
@@ -390,10 +390,10 @@ export default function DashboardPage() {
                 )
                 paidAmount += milestonePaid
               }
-              
+
               // Calculate remaining balance
               const balanceDue = totalPrice - paidAmount
-              
+
               // Only include if there's a balance due
               if (balanceDue > 0) {
                 if (process.env.NODE_ENV === 'development') {
@@ -401,9 +401,9 @@ export default function DashboardPage() {
                 }
                 return sum + balanceDue
               }
-              
-        return sum
-      }, 0)
+
+              return sum
+            }, 0)
             setOverdueRevenue(overdue)
           }
 
@@ -433,7 +433,7 @@ export default function DashboardPage() {
                     "Authorization": `Bearer ${stripeSession.access_token}`,
                   },
                 })
-                
+
                 if (verifyResponse.ok) {
                   const verifyData = await verifyResponse.json()
                   if (verifyData.requirements) {
@@ -486,7 +486,7 @@ export default function DashboardPage() {
   // Handle Stripe onboarding return flow
   useEffect(() => {
     const status = searchParams.get("status")
-    
+
     if (status === "success") {
       handleStripeReturn()
     } else if (status === "error") {
@@ -504,11 +504,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       setWindowSize({ width: window.innerWidth, height: window.innerHeight })
-      
+
       const handleResize = () => {
         setWindowSize({ width: window.innerWidth, height: window.innerHeight })
       }
-      
+
       window.addEventListener("resize", handleResize)
       return () => window.removeEventListener("resize", handleResize)
     }
@@ -567,7 +567,7 @@ export default function DashboardPage() {
         // Success! Account is fully enabled
         console.log("✅ Stripe account fully enabled - showing success toast")
         setShowConfetti(true)
-        
+
         toast({
           title: "🚀 Payments Enabled!",
           description: "Your studio is now ready to accept deposits. Start booking clients!",
@@ -662,12 +662,12 @@ export default function DashboardPage() {
       )}
 
       <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your photography business
-        </p>
-      </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your photography business
+          </p>
+        </div>
         <QuickActions />
       </div>
 
@@ -710,5 +710,29 @@ export default function DashboardPage() {
 
       <RecentActivity bookings={bookings} />
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Overview of your photography business
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-32 animate-pulse rounded-lg border bg-muted"></div>
+          ))}
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }

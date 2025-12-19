@@ -70,7 +70,7 @@ export function BusinessProfileTab() {
           setWebsite(data.website || "")
           setLogoUrl(data.logo_url)
           setSocialLinks(
-            (data.social_links as Record<string, string>) || {
+            (data.social_links as { instagram: string; facebook: string; twitter: string }) || {
               instagram: "",
               facebook: "",
               twitter: "",
@@ -193,7 +193,7 @@ export function BusinessProfileTab() {
     const lowerValue = value.toLowerCase()
     setUsername(lowerValue)
     setUsernameAvailable(null)
-    
+
     // Debounce username check
     if (lowerValue) {
       const timer = setTimeout(() => {

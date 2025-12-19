@@ -44,17 +44,10 @@ export function PaymentMilestones({ booking }: PaymentMilestonesProps) {
       }
 
       // Redirect to Stripe Checkout
-      const stripe = await stripePromise
-      if (!stripe) {
-        throw new Error("Stripe failed to load")
-      }
-
-      const { error } = await stripe.redirectToCheckout({
-        clientSecret: data.clientSecret,
-      })
-
-      if (error) {
-        throw error
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error("No checkout URL received")
       }
     } catch (error: any) {
       toast({
@@ -120,8 +113,8 @@ export function PaymentMilestones({ booking }: PaymentMilestonesProps) {
               {processing === milestone.id
                 ? "Processing..."
                 : milestone.status === "paid"
-                ? "Paid"
-                : "Pay Now"}
+                  ? "Paid"
+                  : "Pay Now"}
             </Button>
           </div>
         ))}

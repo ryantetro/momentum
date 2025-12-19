@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 
 interface ActivityEvent {
   id: string
-  type: "inquiry" | "contract_sent" | "contract_signed" | "payment" | "reminder"
+  type: "inquiry" | "contract_sent" | "contract_signed" | "payment" | "reminder" | "booking_created"
   description: string
   clientName: string
   timestamp: Date
@@ -37,14 +37,14 @@ function buildActivityTimeline(bookings: Booking[]): ActivityEvent[] {
     return parts[0]
   }
 
-  bookings.forEach((booking) => {
+  bookings.forEach((booking: any) => {
     // Handle both array and object formats from Supabase
     const client = Array.isArray((booking as any).clients)
       ? (booking as any).clients[0]
       : Array.isArray(booking.client)
-      ? booking.client[0]
-      : booking.client || (booking as any).clients
-    
+        ? booking.client[0]
+        : booking.client || (booking as any).clients
+
     const clientName = client?.name || "Unknown Client"
     const clientDisplayName = getClientDisplayName(clientName)
     const serviceType = formatServiceType(booking.service_type)
@@ -71,13 +71,13 @@ function buildActivityTimeline(bookings: Booking[]): ActivityEvent[] {
     ) {
       const createdDate = new Date(booking.created_at)
       const daysSinceCreation = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
-      
+
       // Only show if created within last 7 days (to avoid showing old bookings)
       if (daysSinceCreation <= 7) {
         const eventDescription = serviceType
           ? `New ${serviceType} booking created for ${clientDisplayName}`
           : `New booking created for ${clientDisplayName}`
-        
+
         events.push({
           id: `${booking.id}-booking-created`,
           type: "booking_created",
@@ -97,10 +97,10 @@ function buildActivityTimeline(bookings: Booking[]): ActivityEvent[] {
     ) {
       // Use updated_at if available, otherwise created_at
       const sentDate = booking.updated_at || booking.created_at
-      const eventDescription = serviceType 
+      const eventDescription = serviceType
         ? `Contract sent to ${clientDisplayName} for ${serviceType} Session`
         : `Contract sent to ${clientDisplayName}`
-      
+
       events.push({
         id: `${booking.id}-contract-sent`,
         type: "contract_sent",
@@ -123,13 +123,13 @@ function buildActivityTimeline(bookings: Booking[]): ActivityEvent[] {
           eventName = firstLine
         }
       }
-      
+
       const eventDescription = eventName && serviceType
         ? `Contract signed for ${eventName}`
         : serviceType
-        ? `Contract signed for ${serviceType} Session`
-        : `Contract signed by ${clientDisplayName}`
-      
+          ? `Contract signed for ${serviceType} Session`
+          : `Contract signed by ${clientDisplayName}`
+
       events.push({
         id: `${booking.id}-contract-signed`,
         type: "contract_signed",
@@ -142,7 +142,7 @@ function buildActivityTimeline(bookings: Booking[]): ActivityEvent[] {
     }
 
     // Payments
-    booking.payment_milestones?.forEach((milestone, index) => {
+    (booking.payment_milestones as any[])?.forEach((milestone: any, index: number) => {
       if (milestone.paid_at) {
         events.push({
           id: `${booking.id}-payment-${index}`,

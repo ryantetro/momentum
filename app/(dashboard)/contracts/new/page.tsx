@@ -1,9 +1,10 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { ContractEditor } from "@/components/contracts/contract-editor"
 
-export default function NewTemplatePage() {
+function ContractNewContent() {
   const searchParams = useSearchParams()
   const contentParam = searchParams.get("content")
   const initialContent = contentParam ? decodeURIComponent(contentParam) : undefined
@@ -18,6 +19,18 @@ export default function NewTemplatePage() {
       </div>
       <ContractEditor initialContent={initialContent} />
     </div>
+  )
+}
+
+export default function NewTemplatePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-900" />
+      </div>
+    }>
+      <ContractNewContent />
+    </Suspense>
   )
 }
 

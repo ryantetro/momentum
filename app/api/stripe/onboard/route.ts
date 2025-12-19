@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.substring(7)
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      
+
       // Validate token using Supabase REST API directly
       try {
         const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -33,11 +33,11 @@ export async function POST(request: NextRequest) {
           const userData = await response.json()
           user = userData
           console.log("Token validated successfully, user ID:", user.id)
-          
+
           // Create a client with the token for database operations
           const { createClient: createSupabaseClient } = await import("@supabase/supabase-js")
           supabase = createSupabaseClient(
-            supabaseUrl,
+            supabaseUrl!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
               global: {
@@ -98,19 +98,19 @@ export async function POST(request: NextRequest) {
 
     // Check if photographer already has a Stripe account
     let accountId = photographer.stripe_account_id
-    
+
     // Check if we're using test mode
     const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_')
     console.log("Stripe mode check:", { isTestMode, hasAccountId: !!accountId })
-    
+
     // If we have an existing account, check if it matches the current mode
     if (accountId) {
       try {
         // Try to retrieve the account to check its mode
-        const existingAccount = await stripe.accounts.retrieve(accountId)
+        const existingAccount = await stripe.accounts.retrieve(accountId) as any
         const accountIsLive = existingAccount.livemode
         console.log("Existing account mode:", { accountId, accountIsLive, isTestMode })
-        
+
         // If mode mismatch, clear the old account ID
         if ((isTestMode && accountIsLive) || (!isTestMode && !accountIsLive)) {
           console.log(`⚠️  Mode mismatch detected! Clearing old ${accountIsLive ? 'live' : 'test'} account to create new ${isTestMode ? 'test' : 'live'} account.`)
@@ -119,13 +119,13 @@ export async function POST(request: NextRequest) {
             .from("photographers")
             .update({ stripe_account_id: null })
             .eq("user_id", user.id)
-          
+
           if (clearError) {
             console.error("Error clearing old account ID:", clearError)
           } else {
             console.log("✅ Old account ID cleared from database")
           }
-          
+
           accountId = null
         } else {
           console.log("✅ Account mode matches, using existing account")
@@ -137,11 +137,11 @@ export async function POST(request: NextRequest) {
           .from("photographers")
           .update({ stripe_account_id: null })
           .eq("user_id", user.id)
-        
+
         if (clearError) {
           console.error("Error clearing account ID:", clearError)
         }
-        
+
         accountId = null
       }
     }
@@ -174,10 +174,10 @@ export async function POST(request: NextRequest) {
     // Create account link for onboarding
     // For live mode, Stripe requires HTTPS URLs
     let baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    
+
     // Check if we're using live mode keys (they start with sk_live_)
     const isLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_')
-    
+
     // If live mode and localhost, we need HTTPS (use ngrok or similar)
     // For development with test keys, HTTP is fine
     if (isLiveMode && (baseUrl.includes('localhost') || baseUrl.startsWith('http://'))) {
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
         console.log("Using tunnel URL:", baseUrl)
       } else {
         return NextResponse.json(
-          { 
+          {
             error: "Live mode requires HTTPS URLs. For local development:",
             solutions: [
               "1. Use test mode keys (sk_test_...) in your .env.local",
@@ -201,18 +201,18 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-    
+
     // Determine link type: always validate account status before using account_update
     // Stripe doesn't allow account_update links for accounts that haven't completed initial onboarding
     let finalLinkType = linkType
-    
+
     if (accountId) {
       try {
-        const existingAccount = await stripe.accounts.retrieve(accountId)
-        
+        const existingAccount = await stripe.accounts.retrieve(accountId) as any
+
         // Only use account_update if onboarding is complete (details_submitted = true)
         const hasCompletedOnboarding = existingAccount.details_submitted === true
-        
+
         if (linkType === "account_update") {
           // If request wants account_update, validate the account is ready
           if (!hasCompletedOnboarding) {
@@ -220,11 +220,11 @@ export async function POST(request: NextRequest) {
             finalLinkType = "account_onboarding"
           } else {
             // Check if there are actually requirements to update
-            const requirements = existingAccount.requirements || {}
-            const hasRequirements = 
+            const requirements = (existingAccount.requirements || {}) as any
+            const hasRequirements =
               (requirements.past_due && requirements.past_due.length > 0) ||
               (requirements.currently_due && requirements.currently_due.length > 0)
-            
+
             if (!hasRequirements) {
               console.log("⚠️  Account has no requirements, using account_onboarding instead of account_update")
               finalLinkType = "account_onboarding"
@@ -234,11 +234,11 @@ export async function POST(request: NextRequest) {
           }
         } else if (linkType === "account_onboarding" && hasCompletedOnboarding) {
           // If request wants account_onboarding but account is already onboarded, check for requirements
-          const requirements = existingAccount.requirements || {}
-          const hasRequirements = 
+          const requirements = (existingAccount.requirements || {}) as any
+          const hasRequirements =
             (requirements.past_due && requirements.past_due.length > 0) ||
             (requirements.currently_due && requirements.currently_due.length > 0)
-          
+
           if (hasRequirements) {
             finalLinkType = "account_update"
             console.log("Account has completed onboarding and has requirements, using account_update link type")
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
         finalLinkType = "account_onboarding"
       }
     }
-    
+
     // Create account link for onboarding or update
     // Double-check mode before creating link
     try {
@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
         return_url: `${baseUrl}/dashboard?status=success`,
         type: finalLinkType,
       })
-      
+
       return NextResponse.json({
         url: accountLink.url,
         accountId: accountId,
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
             return_url: `${baseUrl}/dashboard?status=success`,
             type: "account_onboarding",
           })
-          
+
           return NextResponse.json({
             url: fallbackLink.url,
             accountId: accountId,
@@ -300,31 +300,31 @@ export async function POST(request: NextRequest) {
           throw linkError
         }
       }
-      
+
       // Re-throw if it's not the account_update error
       // If error is about mode mismatch, clear account and try again
       if (linkError.message?.includes('test mode') && linkError.message?.includes('live mode')) {
         console.log("⚠️  Account link creation failed due to mode mismatch. Clearing account and retrying...")
-        
+
         // Clear the account ID
         await supabase
           .from("photographers")
           .update({ stripe_account_id: null })
           .eq("user_id", user.id)
-        
+
         // Create a new account in the correct mode
         const newAccount = await stripe.accounts.create({
           type: "standard",
           country: "US",
           email: photographer.email,
         })
-        
+
         // Save new account ID
         await supabase
           .from("photographers")
           .update({ stripe_account_id: newAccount.id })
           .eq("user_id", user.id)
-        
+
         // Create account link with new account
         const accountLink = await stripe.accountLinks.create({
           account: newAccount.id,
@@ -332,13 +332,13 @@ export async function POST(request: NextRequest) {
           return_url: `${baseUrl}/dashboard?status=success`,
           type: finalLinkType,
         })
-        
+
         return NextResponse.json({
           url: accountLink.url,
           accountId: newAccount.id,
         })
       }
-      
+
       // Re-throw if it's a different error
       throw linkError
     }

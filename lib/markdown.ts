@@ -14,15 +14,13 @@ export function markdownToHtml(markdown: string): string {
     const html = marked(markdown.trim(), {
       gfm: true,
       breaks: false,
-      headerIds: false,
-      mangle: false,
     })
-    
+
     // marked v17+ returns a string directly
     if (typeof html === "string") {
       return html
     }
-    
+
     // Fallback if it's not a string
     return markdown
   } catch (error) {
@@ -67,7 +65,7 @@ export function isMarkdown(text: string): boolean {
   // If it already contains HTML tags (like <p>, <h1>, etc.), it's likely already HTML
   // But we still check for Markdown patterns in case it's mixed
   const hasHtmlTags = /<[a-z][\s\S]*>/i.test(text)
-  
+
   // Check for common Markdown patterns
   const markdownPatterns = [
     /^##\s+/m,           // Headers (##)
@@ -82,12 +80,12 @@ export function isMarkdown(text: string): boolean {
   ]
 
   const hasMarkdown = markdownPatterns.some(pattern => pattern.test(text))
-  
+
   // If it has Markdown patterns but no HTML tags, it's definitely Markdown
   if (hasMarkdown && !hasHtmlTags) {
     return true
   }
-  
+
   // If it has Markdown patterns and HTML tags, check if Markdown appears more frequently
   // This handles mixed content
   if (hasMarkdown && hasHtmlTags) {
@@ -96,7 +94,7 @@ export function isMarkdown(text: string): boolean {
     // If Markdown patterns are more common, treat as Markdown
     return markdownCount > htmlTagCount / 2
   }
-  
+
   return false
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe/client"
+import Stripe from "stripe"
 
 const TRANSACTION_FEE_PERCENTAGE = 0.035 // 3.5%
 
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Fetch deposit amount from booking, or calculate default (20% of total price)
-      const depositAmount = booking.deposit_amount 
+      const depositAmount = booking.deposit_amount
         ? parseFloat(booking.deposit_amount.toString())
         : (typeof booking.total_price === 'number' ? booking.total_price : parseFloat(booking.total_price.toString())) * 0.2
 
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       const totalAmount = depositAmount + momentumFee
 
       // Create Stripe Checkout Session with Stripe Connect Direct Charges
-      const sessionConfig = {
+      const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         payment_method_types: ["card"],
         line_items: [
           {
@@ -182,32 +183,49 @@ export async function POST(request: NextRequest) {
     // Platform receives: momentumFee
     const totalAmount = milestoneAmount + momentumFee
 
-    // Create payment intent with Stripe Connect Direct Charges
-    const paymentIntentConfig = {
-      amount: Math.round(totalAmount * 100), // Total amount client pays (milestone + fee) in cents
-      currency: "usd",
-      application_fee_amount: Math.round(momentumFee * 100), // Momentum's 3.5% platform fee in cents
+    // Create Stripe Checkout Session with Stripe Connect Direct Charges
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Payment for ${milestone.name}`,
+            },
+            unit_amount: Math.round(totalAmount * 100), // Total amount client pays (milestone + fee) in cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/portal/${booking.portal_token}/success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/portal/${booking.portal_token}?payment=cancelled`,
       metadata: {
         bookingId,
         milestoneId,
+        type: "milestone",
         photographerId: booking.photographer_id,
         baseAmount: milestoneAmount.toString(),
         transactionFee: momentumFee.toString(),
       },
+      payment_intent_data: {
+        application_fee_amount: Math.round(momentumFee * 100), // Momentum's 3.5% platform fee in cents
+      },
     }
 
-    // Create payment intent on the connected account (Direct Charges)
-    const paymentIntent = await stripe.paymentIntents.create(
-      paymentIntentConfig,
+    // Create checkout session on the connected account (Direct Charges)
+    const session = await stripe.checkout.sessions.create(
+      sessionConfig,
       {
         stripeAccount: photographer.stripe_account_id,
       }
     )
 
-    // Update milestone with payment intent ID
+    // Update milestone with session ID
     const updatedMilestones = milestones.map((m: any) =>
       m.id === milestoneId
-        ? { ...m, stripe_payment_intent_id: paymentIntent.id }
+        ? { ...m, stripe_checkout_session_id: session.id }
         : m
     )
 
@@ -217,7 +235,8 @@ export async function POST(request: NextRequest) {
       .eq("id", bookingId)
 
     return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
+      sessionId: session.id,
+      url: session.url,
       amount: totalAmount,
       baseAmount: milestoneAmount,
       transactionFee: momentumFee,

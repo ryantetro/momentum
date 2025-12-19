@@ -32,7 +32,7 @@ Use ✓ for present items and ⚠ for missing items. Be specific and actionable.
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY
-    
+
     if (!apiKey || apiKey.includes("your_") || apiKey.includes("placeholder") || apiKey.length < 20) {
       return NextResponse.json(
         { error: "Gemini API key not configured. Please set GEMINI_API_KEY in your .env.local file" },
@@ -88,20 +88,20 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error("Gemini API error:", errorData)
-      
+
       // Parse Gemini error response
       const geminiError = errorData?.error
       let errorMessage = "Gemini API error"
-      
+
       if (geminiError?.message) {
         errorMessage = geminiError.message
-        
+
         // Check if it's a quota/rate limit issue
         if (geminiError.message.includes("quota") || geminiError.message.includes("exceeded")) {
           // Extract retry time if available
           const retryMatch = geminiError.message.match(/Please retry in ([\d.]+)s/)
           const retrySeconds = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null
-          
+
           if (retrySeconds) {
             errorMessage = `Rate limit exceeded. Please try again in ${retrySeconds} seconds.`
           } else {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      
+
       if (response.status === 429 || geminiError?.code === 429 || geminiError?.status === "RESOURCE_EXHAUSTED") {
         return NextResponse.json(
           { error: errorMessage },
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse structured response
-    const lines = aiResponse.split("\n").map((line) => line.trim()).filter((line) => line.length > 0)
+    const lines = aiResponse.split("\n").map((line: string) => line.trim()).filter((line: string) => line.length > 0)
 
     const legalProtections: Array<{ name: string; present: boolean; notes?: string }> = []
     const generalFeedback: string[] = []
@@ -184,10 +184,10 @@ export async function POST(request: NextRequest) {
     // Fallback: if structured parsing didn't work, use old format
     if (legalProtections.length === 0 && generalFeedback.length === 0) {
       const feedbackLines = lines
-        .map((line) => {
+        .map((line: string) => {
           return line.replace(/^[-*•]\s*/, "").replace(/^\d+\.\s*/, "").trim()
         })
-        .filter((line) => line.length > 0)
+        .filter((line: string) => line.length > 0)
 
       return NextResponse.json({
         success: true,

@@ -66,7 +66,7 @@ export function OverdueTasks() {
         }
 
         // Filter to only include bookings with balance due
-        const overdue = bookings.filter((booking) => {
+        const overdue = (bookings as any[]).filter((booking: any) => {
           const totalPrice = Number(booking.total_price) || 0
           if (totalPrice === 0) return false
 
@@ -104,7 +104,7 @@ export function OverdueTasks() {
         })
 
         // Normalize client data (handle array vs object)
-        const normalized = overdue.map((booking) => {
+        const normalized = overdue.map((booking: any) => {
           const client = Array.isArray(booking.clients) ? booking.clients[0] : booking.clients
           return {
             ...booking,

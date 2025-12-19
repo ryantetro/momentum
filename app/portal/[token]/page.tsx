@@ -67,14 +67,14 @@ export default function PortalPage() {
     async function fetchBooking() {
       try {
         console.log("Fetching booking with token:", token)
-        
+
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        
+
         if (!supabaseUrl || !supabaseKey) {
           throw new Error("Supabase environment variables not configured")
         }
-        
+
         // Create a fresh client instance for this query (bypass singleton)
         console.log("Creating fresh Supabase client...")
         const freshClient = createSupabaseClient(supabaseUrl, supabaseKey, {
@@ -83,13 +83,13 @@ export default function PortalPage() {
             autoRefreshToken: false,
           }
         })
-        
+
         console.log("Querying bookings table...")
         const { data, error } = await freshClient
           .from("bookings")
           .select(`
             *,
-            clients(*),
+            client:clients(*),
             contract_signed_at,
             contract_signed,
             client_signature_name,
@@ -98,7 +98,7 @@ export default function PortalPage() {
           `)
           .eq("portal_token", token)
           .single()
-        
+
         console.log("Query completed. Has data:", !!data, "Has error:", !!error)
 
         if (error) {
@@ -121,40 +121,57 @@ export default function PortalPage() {
         }
 
         // Debug: Log signature data to verify it's being fetched
+        console.log("Booking data fetched keys:", Object.keys(data))
         console.log("Booking data fetched:", {
           id: data.id,
           contract_signed_at: data.contract_signed_at,
           contract_signed: data.contract_signed,
           client_signature_name: data.client_signature_name,
-          hasClient: !!data.clients,
+          hasClients: !!data.clients,
+          hasClient: !!data.client,
         })
 
         setBooking(data)
-        
-        // Handle clients data - it might be an array or object
-        const clientData = Array.isArray(data.clients) ? data.clients[0] : data.clients
+
+        // Handle clients data - it might be an array or object, and might be named 'client' or 'clients'
+        const rawClientData = data.client || data.clients
+        const clientData = Array.isArray(rawClientData) ? rawClientData[0] : rawClientData
+
         if (clientData) {
           setClient(clientData as Client)
         } else {
-          console.error("No client data found for booking")
+          console.error("No client data found for booking. This might be an RLS issue or missing relationship.")
+          console.log("Available keys in data:", Object.keys(data))
+          toast({
+            title: "Data Access Error",
+            description: "Some booking information could not be loaded. Please contact your photographer.",
+            variant: "destructive",
+          })
         }
-        
+
         // Initialize isSigned from database
         setIsSigned(!!data.contract_signed_at)
-        
+        console.log("isSigned set to:", !!data.contract_signed_at)
+
         // Fetch photographer data for hero
         if (data.photographer_id) {
-          const { data: photographerData, error: photographerError } = await supabase
+          console.log("Fetching photographer data with ID:", data.photographer_id)
+          const { data: photographerData, error: photographerError } = await freshClient
             .from("photographers")
             .select("*")
             .eq("id", data.photographer_id)
             .single()
-          
+
           if (photographerError) {
             console.error("Error fetching photographer:", photographerError)
           } else if (photographerData) {
+            console.log("Photographer data fetched successfully")
             setPhotographer(photographerData)
+          } else {
+            console.error("No photographer data found. This might be an RLS issue.")
           }
+        } else {
+          console.log("No photographer_id found in booking data")
         }
       } catch (error: any) {
         console.error("Unexpected error fetching booking:", error)
@@ -198,9 +215,21 @@ export default function PortalPage() {
 
     // Refresh booking data in background
     async function refreshBooking() {
-      const { data } = await supabase
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (!supabaseUrl || !supabaseKey) return
+
+      const freshClient = createSupabaseClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        }
+      })
+
+      const { data } = await freshClient
         .from("bookings")
-        .select("*, clients(*)")
+        .select("*, client:clients(*)")
         .eq("portal_token", token)
         .single()
 
@@ -224,9 +253,9 @@ export default function PortalPage() {
       setAutoRedirecting(true)
       setTimeout(async () => {
         try {
-          const depositAmount = booking.deposit_amount 
-            ? parseFloat(booking.deposit_amount.toString())
-            : (typeof booking.total_price === 'number' ? booking.total_price : parseFloat(booking.total_price.toString())) * 0.2
+          const depositAmount = booking.deposit_amount
+            ? Number(booking.deposit_amount)
+            : (typeof booking.total_price === 'number' ? booking.total_price : Number(booking.total_price)) * 0.2
 
           const response = await fetch("/api/stripe/create-payment-intent", {
             method: "POST",
@@ -293,9 +322,9 @@ export default function PortalPage() {
     if (!booking || paying) return
     setPaying(true)
     try {
-      const depositAmount = booking.deposit_amount 
-        ? parseFloat(booking.deposit_amount.toString())
-        : (typeof booking.total_price === 'number' ? booking.total_price : parseFloat(booking.total_price.toString())) * 0.2
+      const depositAmount = booking.deposit_amount
+        ? Number(booking.deposit_amount)
+        : (typeof booking.total_price === 'number' ? booking.total_price : Number(booking.total_price)) * 0.2
 
       const response = await fetch("/api/stripe/create-payment-intent", {
         method: "POST",
@@ -338,7 +367,7 @@ export default function PortalPage() {
         />
       )}
       <PortalHeader photographerId={booking.photographer_id} />
-      
+
       {/* Hero Section with Progress Indicator */}
       {booking && client && photographer && (
         <PortalHero
@@ -348,7 +377,7 @@ export default function PortalPage() {
           isSigned={isSigned}
         />
       )}
-      
+
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="space-y-8">
 
@@ -466,7 +495,7 @@ export default function PortalPage() {
                     </p>
                   </div>
                   <p className="text-sm text-green-700 text-center">
-                    {booking.contract_signed_at 
+                    {booking.contract_signed_at
                       ? `Signed on ${new Date(booking.contract_signed_at).toLocaleDateString()}`
                       : "Signature confirmed"}
                   </p>
@@ -516,7 +545,7 @@ export default function PortalPage() {
                           Final Step: Secure Your Date
                         </p>
                         <p className="text-sm text-blue-700 dark:text-blue-300">
-                          {autoRedirecting 
+                          {autoRedirecting
                             ? "Preparing secure checkout..."
                             : "Complete your deposit payment to officially book your event on the calendar."}
                         </p>
@@ -565,7 +594,7 @@ export default function PortalPage() {
           )}
         </div>
       </div>
-      
+
       {/* Sticky Action Footer for Mobile */}
       {booking && (
         <StickyActionFooter

@@ -11,7 +11,7 @@ import { InquiryConversionModal } from "@/components/bookings/inquiry-conversion
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, XCircle, DollarSign, FileText, Copy, Check, Sparkles, RefreshCw } from "lucide-react"
+import { ArrowLeft, CheckCircle2, XCircle, DollarSign, FileText, Copy, Check, Sparkles, RefreshCw, Info } from "lucide-react"
 import type { Booking, Client } from "@/types"
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
@@ -71,18 +71,18 @@ export default function BookingDetailPage() {
       if (data && data.portal_token && (data.contract_text || data.status === "PROPOSAL_SENT" || data.status === "contract_sent")) {
         const baseUrl = typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
         const portalUrl = `${baseUrl}/portal/${data.portal_token}`
-        
+
         // Get photographer name
         const { data: photographerData } = await supabase
           .from("photographers")
           .select("business_name, email")
           .eq("id", photographer.id)
           .single()
-        
+
         const client = Array.isArray(data.clients) ? data.clients[0] : data.clients
         const clientName = client?.name || "Client"
         const photographerName = photographerData?.business_name || photographerData?.email || "Photographer"
-        
+
         setEmailTemplateData({
           portalUrl,
           clientName,
@@ -108,15 +108,15 @@ export default function BookingDetailPage() {
 
   useEffect(() => {
     fetchBooking()
-    
+
     // Listen for booking updates
     const handleBookingUpdate = () => {
       fetchBooking()
       router.refresh()
     }
-    
+
     window.addEventListener('booking-updated', handleBookingUpdate)
-    
+
     // Set up Supabase real-time subscription for booking updates
     const channel = supabase
       .channel(`booking-${bookingId}`)
@@ -135,12 +135,12 @@ export default function BookingDetailPage() {
         }
       )
       .subscribe()
-    
+
     // Also poll for updates every 5 seconds as a fallback
     const pollInterval = setInterval(() => {
       fetchBooking()
     }, 5000)
-    
+
     // Refresh when page becomes visible (user switches back to tab)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -148,7 +148,7 @@ export default function BookingDetailPage() {
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
+
     return () => {
       window.removeEventListener('booking-updated', handleBookingUpdate)
       clearInterval(pollInterval)
@@ -308,102 +308,101 @@ export default function BookingDetailPage() {
       )}
 
       {/* Proposal Overview - Show when proposal has been sent (Sent/PROPOSAL_SENT/contract_sent) but not yet Active */}
-      {(booking.status === "PROPOSAL_SENT" || 
-        booking.status === "contract_sent" || 
-        booking.status === "Sent") && 
-        booking.status !== "Active" &&
+      {(booking.status === "PROPOSAL_SENT" ||
+        booking.status === "contract_sent" ||
+        booking.status === "Sent") &&
         booking.contract_text && (
-        <Card className="border-2 border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-blue-600" />
-                  Proposal Active
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Your proposal has been generated and sent to your client. They can access it via the portal link below.
-                </p>
-                <div className="mt-4 space-y-3">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded border">
-                    <p className="text-xs font-medium text-muted-foreground mb-2">Client Portal Link:</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 text-xs break-all bg-muted px-2 py-1 rounded">
-                        {portalUrl}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCopyPortalUrl}
-                        className="shrink-0"
-                      >
-                        {portalUrlCopied ? (
-                          <>
-                            <Check className="h-4 w-4 mr-2" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {booking.contract_text && (() => {
-                    // Strip HTML tags using regex (works on both client and server)
-                    const stripHtml = (html: string) => {
-                      return html
-                        .replace(/<[^>]*>/g, '') // Remove HTML tags
-                        .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
-                        .replace(/&amp;/g, '&') // Replace &amp; with &
-                        .replace(/&lt;/g, '<') // Replace &lt; with <
-                        .replace(/&gt;/g, '>') // Replace &gt; with >
-                        .replace(/&quot;/g, '"') // Replace &quot; with "
-                        .replace(/&#39;/g, "'") // Replace &#39; with '
-                        .trim()
-                    }
-                    
-                    const cleanText = stripHtml(booking.contract_text)
-                    const previewLines = cleanText.split(/\n+/).filter(line => line.trim()).slice(0, 4)
-                    const totalLines = cleanText.split(/\n+/).filter(line => line.trim()).length
-                    const hasMore = totalLines > previewLines.length
-                    
-                    return (
-                      <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Contract Preview</p>
-                          <Badge variant="outline" className="text-xs">Preview</Badge>
-                        </div>
-                        <div className="space-y-2.5 max-h-40 overflow-y-auto pr-2">
-                          {previewLines.map((line, idx) => (
-                            <p 
-                              key={idx}
-                              className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
-                              style={{ 
-                                fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
-                                lineHeight: '1.7'
-                              }}
-                            >
-                              {line.trim() || "\u00A0"}
-                            </p>
-                          ))}
-                          {hasMore && (
-                            <p className="text-xs text-muted-foreground italic pt-1 border-t border-gray-200 dark:border-gray-700 mt-2">
-                              ... {totalLines - previewLines.length} more paragraph{totalLines - previewLines.length !== 1 ? 's' : ''}
-                            </p>
+          <Card className="border-2 border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                    Proposal Active
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Your proposal has been generated and sent to your client. They can access it via the portal link below.
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Client Portal Link:</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-xs break-all bg-muted px-2 py-1 rounded">
+                          {portalUrl}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyPortalUrl}
+                          className="shrink-0"
+                        >
+                          {portalUrlCopied ? (
+                            <>
+                              <Check className="h-4 w-4 mr-2" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy
+                            </>
                           )}
-                        </div>
+                        </Button>
                       </div>
-                    )
-                  })()}
+                    </div>
+                    {booking.contract_text && (() => {
+                      // Strip HTML tags using regex (works on both client and server)
+                      const stripHtml = (html: string) => {
+                        return html
+                          .replace(/<[^>]*>/g, '') // Remove HTML tags
+                          .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
+                          .replace(/&amp;/g, '&') // Replace &amp; with &
+                          .replace(/&lt;/g, '<') // Replace &lt; with <
+                          .replace(/&gt;/g, '>') // Replace &gt; with >
+                          .replace(/&quot;/g, '"') // Replace &quot; with "
+                          .replace(/&#39;/g, "'") // Replace &#39; with '
+                          .trim()
+                      }
+
+                      const cleanText = stripHtml(booking.contract_text)
+                      const previewLines = cleanText.split(/\n+/).filter(line => line.trim()).slice(0, 4)
+                      const totalLines = cleanText.split(/\n+/).filter(line => line.trim()).length
+                      const hasMore = totalLines > previewLines.length
+
+                      return (
+                        <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Contract Preview</p>
+                            <Badge variant="outline" className="text-xs">Preview</Badge>
+                          </div>
+                          <div className="space-y-2.5 max-h-40 overflow-y-auto pr-2">
+                            {previewLines.map((line, idx) => (
+                              <p
+                                key={idx}
+                                className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
+                                style={{
+                                  fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+                                  lineHeight: '1.7'
+                                }}
+                              >
+                                {line.trim() || "\u00A0"}
+                              </p>
+                            ))}
+                            {hasMore && (
+                              <p className="text-xs text-muted-foreground italic pt-1 border-t border-gray-200 dark:border-gray-700 mt-2">
+                                ... {totalLines - previewLines.length} more paragraph{totalLines - previewLines.length !== 1 ? 's' : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Status Cards - Prominent Display */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -418,20 +417,20 @@ export default function BookingDetailPage() {
           <CardContent>
             {(() => {
               // Check if contract is signed - use multiple fields for accuracy
-              const isSigned = booking.contract_signed_at || 
-                               (booking.contract_signed === true && (booking.client_signature_name || booking.contract_signed_by))
-              
+              const isSigned = booking.contract_signed_at ||
+                (booking.contract_signed === true && (booking.client_signature_name || booking.contract_signed_by))
+
               // Check if contract exists
               const hasContract = !!booking.contract_text
 
               if (isSigned) {
                 // Contract is signed
-                const signedDate = booking.contract_signed_at 
+                const signedDate = booking.contract_signed_at
                   ? new Date(booking.contract_signed_at)
-                  : booking.updated_at 
+                  : booking.updated_at
                     ? new Date(booking.updated_at)
                     : null
-                
+
                 return (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -532,7 +531,13 @@ export default function BookingDetailPage() {
       {/* Momentum Link Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Momentum Link</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Momentum Link</CardTitle>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-stone-100 px-2 py-1 rounded-full border border-stone-200">
+              <Info className="h-3.5 w-3.5 text-blue-500" />
+              <span>Secure Client Access</span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
@@ -558,8 +563,12 @@ export default function BookingDetailPage() {
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Send this link to your client to access their portal
+          <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              This is a secure, private link generated specifically for this client.
+              It uses a unique token instead of the booking ID to ensure only the client can access their portal.
+            </span>
           </p>
         </CardContent>
       </Card>
@@ -597,17 +606,17 @@ export default function BookingDetailPage() {
       </Card>
 
       {/* Proposal Generation - Only show if not already sent */}
-      {(booking.status !== "PROPOSAL_SENT" && 
-        booking.status !== "contract_sent" && 
-        booking.status !== "Sent" && 
+      {(booking.status !== "PROPOSAL_SENT" &&
+        booking.status !== "contract_sent" &&
+        booking.status !== "Sent" &&
         booking.status !== "Active" &&
         booking.status === "Inquiry") && (
-        <GenerateProposalButton
-          bookingId={bookingId}
-          photographerId={booking.photographer_id}
-          onProposalGenerated={setEmailTemplateData}
-        />
-      )}
+          <GenerateProposalButton
+            bookingId={bookingId}
+            photographerId={booking.photographer_id}
+            onProposalGenerated={setEmailTemplateData}
+          />
+        )}
 
       {/* Email Template, Custom Form, and Files */}
       {emailTemplateData ? (
