@@ -1,0 +1,16 @@
+name: Daily Reminders Cron
+
+on:
+  schedule:
+    # Runs at 13:00 UTC (9:00 AM EST) every day
+    - cron: '0 13 * * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
+
+jobs:
+  trigger-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Reminders API
+        run: |
+          curl -X GET "${{ secrets.APP_URL }}/api/cron/reminders" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
