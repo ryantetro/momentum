@@ -120,7 +120,14 @@ export default function ClientDetailPage() {
             <CardTitle>Client Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <ClientForm clientId={clientId} initialData={client} />
+            <ClientForm 
+              clientId={clientId} 
+              initialData={{
+                name: client.name,
+                email: client.email,
+                phone: client.phone ?? undefined,
+              }} 
+            />
           </CardContent>
         </Card>
 
@@ -159,5 +166,6 @@ export default function ClientDetailPage() {
     </div>
   )
 }
+
 
 

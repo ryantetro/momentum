@@ -3,14 +3,70 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export function LandingHeader() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const isLandingPage = pathname === "/"
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id)
     if (element) {
       element.scrollIntoView({ behavior: "smooth" })
     }
   }
+
+  const handleNavigation = async (sectionId: string) => {
+    if (isLandingPage) {
+      // If we're on the landing page, just scroll
+      scrollToSection(sectionId)
+    } else {
+      // If we're on another page, navigate to landing page with hash
+      await router.push(`/#${sectionId}`)
+      // After navigation, scroll to the section
+      // Use a longer delay to ensure the page has fully loaded
+      setTimeout(() => {
+        scrollToSection(sectionId)
+      }, 500)
+    }
+  }
+
+  // Handle hash fragments when landing page loads or when hash changes
+  useEffect(() => {
+    if (isLandingPage) {
+      const handleHashChange = () => {
+        if (window.location.hash) {
+          const hash = window.location.hash.substring(1) // Remove the #
+          // Small delay to ensure page is fully rendered
+          setTimeout(() => {
+            scrollToSection(hash)
+          }, 300)
+        }
+      }
+
+      // Handle initial hash on page load
+      if (window.location.hash) {
+        handleHashChange()
+      }
+
+      // Listen for hash changes (when navigating with hash)
+      window.addEventListener("hashchange", handleHashChange)
+
+      // Also check after a short delay in case navigation just completed
+      const timeoutId = setTimeout(() => {
+        if (window.location.hash) {
+          handleHashChange()
+        }
+      }, 500)
+
+      return () => {
+        window.removeEventListener("hashchange", handleHashChange)
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [isLandingPage])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -27,19 +83,19 @@ export function LandingHeader() {
         </Link>
         <nav className="hidden md:flex items-center gap-6">
           <button
-            onClick={() => scrollToSection("features")}
+            onClick={() => handleNavigation("features")}
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Features
           </button>
           <button
-            onClick={() => scrollToSection("pricing")}
+            onClick={() => handleNavigation("pricing")}
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Pricing
           </button>
           <button
-            onClick={() => scrollToSection("how-it-works")}
+            onClick={() => handleNavigation("how-it-works")}
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             How It Works

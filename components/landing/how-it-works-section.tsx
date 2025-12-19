@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { CreditCard, Link2, Zap, ArrowRight } from "lucide-react"
 import { ScrollAnimation } from "./scroll-animation"
 
@@ -54,9 +55,9 @@ export function HowItWorksSection() {
             {steps.map((step, index) => {
               const Icon = step.icon
               return (
-                <>
+                <React.Fragment key={step.number}>
                   {/* Step content */}
-                  <ScrollAnimation key={step.number} delay={index * 150}>
+                  <ScrollAnimation delay={index * 150}>
                     <div className="flex flex-col items-center text-center w-full md:w-auto max-w-xs">
                     {/* Icon with number badge */}
                     <div className="relative mb-6">
@@ -103,7 +104,7 @@ export function HowItWorksSection() {
                       </div>
                     </div>
                   )}
-                </>
+                </React.Fragment>
               )
             })}
           </div>

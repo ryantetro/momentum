@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 
 export function SignUpForm() {
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -21,6 +23,11 @@ export function SignUpForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First and last name are required")
+      return
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match")
@@ -34,7 +41,7 @@ export function SignUpForm() {
 
     setLoading(true)
 
-    const { error } = await signUp(email, password)
+    const { error } = await signUp(email, password, firstName, lastName)
 
     if (error) {
       setError(error.message)
@@ -53,6 +60,32 @@ export function SignUpForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                type="text"
+                placeholder="John"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                placeholder="Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -106,5 +139,6 @@ export function SignUpForm() {
     </Card>
   )
 }
+
 
 

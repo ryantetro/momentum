@@ -4,16 +4,24 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { ClientsTable } from "@/components/clients/clients-table"
 import { ClientsSearch } from "@/components/clients/clients-search"
+import { ClientsEmptyState } from "@/components/clients/clients-empty-state"
+import { ClientDetailSlideover } from "@/components/clients/client-detail-slideover"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus } from "lucide-react"
-import type { Client } from "@/types"
+import type { Client, Booking } from "@/types"
+
+interface ClientWithBookings extends Client {
+  bookings?: Booking[]
+}
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([])
-  const [filteredClients, setFilteredClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<ClientWithBookings[]>([])
+  const [filteredClients, setFilteredClients] = useState<ClientWithBookings[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
+  const [selectedClient, setSelectedClient] = useState<ClientWithBookings | null>(null)
+  const [inquiryUrl, setInquiryUrl] = useState<string>("")
   const supabase = createClient()
 
   useEffect(() => {
@@ -38,16 +46,54 @@ export default function ClientsPage() {
           return
         }
 
-        const { data, error } = await supabase
+        // Fetch clients
+        const { data: clientsData, error: clientsError } = await supabase
           .from("clients")
           .select("*")
           .eq("photographer_id", photographer.id)
           .order("created_at", { ascending: false })
 
-        if (error) throw error
+        if (clientsError) throw clientsError
 
-        setClients(data || [])
-        setFilteredClients(data || [])
+        // Fetch all bookings for these clients
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from("bookings")
+          .select("*")
+          .eq("photographer_id", photographer.id)
+
+        if (bookingsError) throw bookingsError
+
+        // Group bookings by client_id
+        const bookingsByClient = new Map<string, Booking[]>()
+        bookingsData?.forEach((booking: Booking) => {
+          if (!bookingsByClient.has(booking.client_id)) {
+            bookingsByClient.set(booking.client_id, [])
+          }
+          bookingsByClient.get(booking.client_id)?.push(booking)
+        })
+
+        // Attach bookings to clients
+        const clientsWithBookings: ClientWithBookings[] = (clientsData || []).map((client: Client) => ({
+          ...client,
+          bookings: bookingsByClient.get(client.id) || [],
+        }))
+
+        setClients(clientsWithBookings)
+        setFilteredClients(clientsWithBookings)
+
+        // Fetch photographer username for inquiry URL
+        const { data: photographerData } = await supabase
+          .from("photographers")
+          .select("username")
+          .eq("id", photographer.id)
+          .single()
+
+        if (photographerData?.username) {
+          const baseUrl = typeof window !== "undefined" 
+            ? window.location.origin 
+            : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+          setInquiryUrl(`${baseUrl}/inquiry/${photographerData.username}`)
+        }
       } catch (error) {
         console.error("Error fetching clients:", error)
       } finally {
@@ -109,7 +155,21 @@ export default function ClientsPage() {
           <ClientsSearch value={searchQuery} onChange={setSearchQuery} />
         </div>
       </div>
-      <ClientsTable clients={filteredClients} />
+      {filteredClients.length === 0 ? (
+        <ClientsEmptyState inquiryUrl={inquiryUrl} />
+      ) : (
+        <ClientsTable 
+          clients={filteredClients} 
+          onClientClick={setSelectedClient}
+        />
+      )}
+      {selectedClient && (
+        <ClientDetailSlideover
+          client={selectedClient}
+          open={!!selectedClient}
+          onOpenChange={(open) => !open && setSelectedClient(null)}
+        />
+      )}
     </div>
   )
 }

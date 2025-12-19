@@ -59,3 +59,4 @@ CREATE INDEX IF NOT EXISTS idx_bookings_payment_status ON bookings(payment_statu
 CREATE INDEX IF NOT EXISTS idx_bookings_contract_signed_at ON bookings(contract_signed_at);
 
 
+

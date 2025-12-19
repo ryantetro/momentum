@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { BookingsTable } from "@/components/bookings/bookings-table"
 import { BookingsFilters } from "@/components/bookings/bookings-filters"
 import { BookingsSort } from "@/components/bookings/bookings-sort"
+import { BookingCard } from "@/components/bookings/booking-card"
+import { BookingsEmptyState } from "@/components/bookings/bookings-empty-state"
 import type { Booking } from "@/types"
 
 export default function BookingsPage() {
@@ -13,6 +14,7 @@ export default function BookingsPage() {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [serviceTypeFilter, setServiceTypeFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("created_at")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const supabase = createClient()
@@ -40,13 +42,30 @@ export default function BookingsPage() {
 
         const { data, error } = await supabase
           .from("bookings")
-          .select("*, clients(*)")
+          .select(`
+            *,
+            clients (
+              id,
+              name,
+              email,
+              phone
+            )
+          `)
           .eq("photographer_id", photographer.id)
           .order("created_at", { ascending: false })
 
         if (error) throw error
 
-        setBookings(data || [])
+        // Transform data to normalize client relationship
+        // Supabase returns clients as an array, but we want it as a single object
+        const transformedBookings = (data || []).map((booking: any) => ({
+          ...booking,
+          client: Array.isArray(booking.clients) 
+            ? booking.clients[0] 
+            : booking.clients || booking.client,
+        }))
+
+        setBookings(transformedBookings)
       } catch (error) {
         console.error("Error fetching bookings:", error)
       } finally {
@@ -57,9 +76,22 @@ export default function BookingsPage() {
     fetchBookings()
   }, [supabase])
 
-  // Apply filters and sorting
+  // Apply filters, search, and sorting
   const filteredAndSortedBookings = useMemo(() => {
     let filtered = [...bookings]
+
+    // Apply search
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((booking) => {
+        // Handle both array and object formats from Supabase
+        const client = Array.isArray((booking as any).clients) 
+          ? (booking as any).clients[0] 
+          : Array.isArray(booking.client)
+          ? booking.client[0]
+          : booking.client || (booking as any).clients
+        return client?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      })
+    }
 
     // Apply filters
     if (paymentStatusFilter !== "all") {
@@ -74,8 +106,16 @@ export default function BookingsPage() {
       filtered = filtered.filter((b) => b.service_type === serviceTypeFilter)
     }
 
-    // Apply sorting
+    // Sort inquiries first, then apply other sorting
     filtered.sort((a, b) => {
+      // Always show inquiries first
+      const aIsInquiry = a.status === "Inquiry"
+      const bIsInquiry = b.status === "Inquiry"
+      
+      if (aIsInquiry && !bIsInquiry) return -1
+      if (!aIsInquiry && bIsInquiry) return 1
+      
+      // If both are inquiries or both are not, apply normal sorting
       let aValue: any
       let bValue: any
 
@@ -86,8 +126,8 @@ export default function BookingsPage() {
         aValue = new Date(a.created_at).getTime()
         bValue = new Date(b.created_at).getTime()
       } else if (sortBy === "total_price") {
-        aValue = typeof a.total_price === "number" ? a.total_price : parseFloat(a.total_price.toString())
-        bValue = typeof b.total_price === "number" ? b.total_price : parseFloat(b.total_price.toString())
+        aValue = a.total_price
+        bValue = b.total_price
       } else {
         return 0
       }
@@ -102,6 +142,7 @@ export default function BookingsPage() {
     return filtered
   }, [
     bookings,
+    searchQuery,
     paymentStatusFilter,
     statusFilter,
     serviceTypeFilter,
@@ -134,9 +175,11 @@ export default function BookingsPage() {
           paymentStatus={paymentStatusFilter}
           status={statusFilter}
           serviceType={serviceTypeFilter}
+          searchQuery={searchQuery}
           onPaymentStatusChange={setPaymentStatusFilter}
           onStatusChange={setStatusFilter}
           onServiceTypeChange={setServiceTypeFilter}
+          onSearchChange={setSearchQuery}
         />
         <BookingsSort
           sortBy={sortBy}
@@ -145,7 +188,17 @@ export default function BookingsPage() {
           onSortOrderChange={setSortOrder}
         />
       </div>
-      <BookingsTable bookings={filteredAndSortedBookings} />
+
+      {/* Card Grid or Empty State */}
+      {filteredAndSortedBookings.length === 0 ? (
+        <BookingsEmptyState />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAndSortedBookings.map((booking) => (
+            <BookingCard key={booking.id} booking={booking} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

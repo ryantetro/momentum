@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { CreditCard, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/toaster"
+import { createClient } from "@/lib/supabase/client"
 
 export function EnablePaymentsButton() {
   const [loading, setLoading] = useState(false)
@@ -13,10 +14,20 @@ export function EnablePaymentsButton() {
     setLoading(true)
 
     try {
+      // Get session token from client-side Supabase
+      const supabase = createClient()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        throw new Error("Please log in to enable payments")
+      }
+
       const response = await fetch("/api/stripe/onboard", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // Pass the access token in Authorization header as fallback
+          "Authorization": `Bearer ${session.access_token}`,
         },
       })
 

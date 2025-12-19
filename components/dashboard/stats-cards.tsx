@@ -1,15 +1,17 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, DollarSign } from "lucide-react"
+import { Users, Calendar, DollarSign, TrendingUp } from "lucide-react"
 
 interface StatsCardsProps {
   totalClients: number
   totalBookings: number
   pendingPayments: number
+  projectedRevenue?: number
+  overdueRevenue?: number
 }
 
-export function StatsCards({ totalClients, totalBookings, pendingPayments }: StatsCardsProps) {
+export function StatsCards({ totalClients, totalBookings, pendingPayments, projectedRevenue = 0, overdueRevenue = 0 }: StatsCardsProps) {
   const stats = [
     {
       title: "Total Clients",
@@ -25,14 +27,39 @@ export function StatsCards({ totalClients, totalBookings, pendingPayments }: Sta
     },
     {
       title: "Pending Payments",
-      value: `$${pendingPayments.toLocaleString()}`,
+      value: `$${pendingPayments.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       icon: DollarSign,
       description: "Outstanding amount",
     },
+    {
+      title: "Projected Revenue",
+      value: `$${projectedRevenue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      icon: TrendingUp,
+      description: "Next 30 days",
+    },
   ]
 
+  // Add overdue revenue card if there's overdue revenue
+  if (overdueRevenue > 0) {
+    stats.push({
+      title: "Overdue Revenue",
+      value: `$${overdueRevenue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      icon: DollarSign,
+      description: "Past events",
+    })
+  }
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
         <Card key={stat.title}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -48,5 +75,6 @@ export function StatsCards({ totalClients, totalBookings, pendingPayments }: Sta
     </div>
   )
 }
+
 
 

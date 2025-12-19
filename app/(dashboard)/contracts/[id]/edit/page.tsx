@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { TemplateForm } from "@/components/contracts/template-form"
+import { ContractEditor } from "@/components/contracts/contract-editor"
 import type { ContractTemplate } from "@/types"
 
-export default function EditTemplatePage() {
+function EditTemplateContent() {
   const params = useParams()
   const router = useRouter()
   const templateId = params.id as string
@@ -69,12 +69,21 @@ export default function EditTemplatePage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Edit Template</h1>
         <p className="text-muted-foreground">
-          Update your contract template
+          Update your contract template with AI assistance
         </p>
       </div>
-      <TemplateForm templateId={templateId} initialData={template} />
+      <ContractEditor templateId={templateId} initialData={template} />
     </div>
   )
 }
+
+export default function EditTemplatePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EditTemplateContent />
+    </Suspense>
+  )
+}
+
 
 

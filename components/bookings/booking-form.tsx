@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -13,13 +14,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MilestonesBuilder } from "./milestones-builder"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toaster"
-import type { PaymentMilestone, ContractTemplate } from "@/types"
+import type { PaymentMilestone, ContractTemplate, Client } from "@/types"
 
 const bookingSchema = z.object({
-  service_type: z.enum(["wedding", "portrait"]),
+  client_id: z.string().min(1, "Client is required"),
+  service_type: z.string().min(1, "Service type is required"),
   event_date: z.string().min(1, "Event date is required"),
   total_price: z.string().min(1, "Total price is required"),
-  deposit_amount: z.string().optional(),
+  deposit_amount: z.string().min(1, "Deposit amount is required"),
   payment_due_date: z.string().optional(),
   contract_template_id: z.string().optional(),
 })
@@ -27,13 +29,14 @@ const bookingSchema = z.object({
 type BookingFormData = z.infer<typeof bookingSchema>
 
 interface BookingFormProps {
-  clientId: string
+  clientId?: string
 }
 
 export function BookingForm({ clientId }: BookingFormProps) {
   const [loading, setLoading] = useState(false)
   const [milestones, setMilestones] = useState<PaymentMilestone[]>([])
   const [templates, setTemplates] = useState<ContractTemplate[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const router = useRouter()
   const supabase = createClient()
   const { toast } = useToast()
@@ -42,19 +45,23 @@ export function BookingForm({ clientId }: BookingFormProps) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
+      client_id: clientId || "",
       service_type: "wedding",
       total_price: "",
+      deposit_amount: "",
     },
   })
 
   const totalPrice = parseFloat(watch("total_price") || "0")
+  const depositAmount = parseFloat(watch("deposit_amount") || "0")
 
   useEffect(() => {
-    async function fetchTemplates() {
+    async function fetchData() {
       try {
         const {
           data: { session },
@@ -70,27 +77,52 @@ export function BookingForm({ clientId }: BookingFormProps) {
 
         if (!photographer) return
 
-        const { data, error } = await supabase
+        // Fetch templates
+        const { data: templatesData, error: templatesError } = await supabase
           .from("contract_templates")
           .select("*")
           .eq("photographer_id", photographer.id)
           .order("is_default", { ascending: false })
 
-        if (error) throw error
+        if (templatesError) throw templatesError
+        setTemplates(templatesData || [])
 
-        setTemplates(data || [])
+        // Fetch clients if clientId not provided
+        if (!clientId) {
+          const { data: clientsData, error: clientsError } = await supabase
+            .from("clients")
+            .select("id, name, email")
+            .eq("photographer_id", photographer.id)
+            .order("name")
+
+          if (clientsError) throw clientsError
+          setClients(clientsData || [])
+        }
       } catch (error) {
-        console.error("Error fetching templates:", error)
+        console.error("Error fetching data:", error)
       }
     }
 
-    fetchTemplates()
-  }, [supabase])
+    fetchData()
+  }, [supabase, clientId])
 
   const onSubmit = async (data: BookingFormData) => {
+    // Validate deposit amount
+    const totalPriceNum = parseFloat(data.total_price)
+    const depositAmountNum = parseFloat(data.deposit_amount)
+    
+    if (depositAmountNum > totalPriceNum) {
+      toast({
+        title: "Error",
+        description: "Deposit amount cannot exceed total price",
+        variant: "destructive",
+      })
+      return
+    }
+
     // Validate milestones
     const totalMilestones = milestones.reduce((sum, m) => sum + m.amount, 0)
-    if (Math.abs(totalMilestones - totalPrice) > 0.01) {
+    if (Math.abs(totalMilestones - totalPriceNum) > 0.01) {
       toast({
         title: "Error",
         description: "Milestone amounts must equal the booking total",
@@ -134,10 +166,10 @@ export function BookingForm({ clientId }: BookingFormProps) {
       const { data: client } = await supabase
         .from("clients")
         .select("email")
-        .eq("id", clientId)
+        .eq("id", data.client_id)
         .single()
 
-      // Get contract text if template is selected
+      // Get contract text if template is selected, otherwise use default from photographers table
       let contractText = null
       if (data.contract_template_id) {
         const { data: template } = await supabase
@@ -149,12 +181,22 @@ export function BookingForm({ clientId }: BookingFormProps) {
         if (template) {
           contractText = template.content
         }
+      } else {
+        // Fallback to default contract_template from photographers table
+        // This is the master template set in Settings > Contract Defaults
+        const { data: photographerData } = await supabase
+          .from("photographers")
+          .select("contract_template")
+          .eq("id", photographer.id)
+          .single()
+
+        if (photographerData?.contract_template) {
+          contractText = photographerData.contract_template
+        }
       }
 
-      const totalPriceNum = parseFloat(data.total_price)
-      const depositAmount = data.deposit_amount 
-        ? parseFloat(data.deposit_amount)
-        : totalPriceNum * 0.2 // Default to 20% if not specified
+      // Generate portal token (UUID)
+      const portalToken = crypto.randomUUID()
 
       // Convert payment_due_date to ISO string if provided
       const paymentDueDate = data.payment_due_date
@@ -163,24 +205,33 @@ export function BookingForm({ clientId }: BookingFormProps) {
 
       const { error } = await supabase.from("bookings").insert({
         photographer_id: photographer.id,
-        client_id: clientId,
+        client_id: data.client_id,
         client_email: client?.email || null,
         service_type: data.service_type,
         event_date: data.event_date,
         total_price: totalPriceNum,
-        deposit_amount: depositAmount,
+        deposit_amount: depositAmountNum,
         payment_due_date: paymentDueDate,
         contract_template_id: data.contract_template_id || null,
         contract_text: contractText,
         payment_milestones: milestones,
         status: "draft",
         payment_status: "PENDING_DEPOSIT",
+        portal_token: portalToken,
       })
 
       if (error) throw error
 
-      toast({ title: "Booking created successfully" })
-      router.push(`/clients/${clientId}`)
+      toast({ 
+        title: "Booking created successfully",
+        description: "Your booking is ready to manage"
+      })
+      
+      if (clientId) {
+        router.push(`/clients/${data.client_id}`)
+      } else {
+        router.push("/bookings")
+      }
       router.refresh()
     } catch (error: any) {
       toast({
@@ -203,13 +254,39 @@ export function BookingForm({ clientId }: BookingFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Client Selection - only show if clientId not provided */}
+          {!clientId && (
+            <div className="space-y-2">
+              <Label htmlFor="client_id">Client *</Label>
+              <Select id="client_id" {...register("client_id")} disabled={loading}>
+                <option value="">Select a client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name} {client.email && `(${client.email})`}
+                  </option>
+                ))}
+              </Select>
+              {errors.client_id && (
+                <p className="text-sm text-destructive">{errors.client_id.message}</p>
+              )}
+              {clients.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No clients found. <Link href="/clients" className="text-blue-600 hover:underline">Create a client first</Link>
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="service_type">Service Type *</Label>
-              <Select id="service_type" {...register("service_type")} disabled={loading}>
-                <option value="wedding">Wedding</option>
-                <option value="portrait">Portrait</option>
-              </Select>
+              <Input
+                id="service_type"
+                type="text"
+                placeholder="e.g., Wedding, Sports, Corporate, Portrait..."
+                {...register("service_type")}
+                disabled={loading}
+              />
               {errors.service_type && (
                 <p className="text-sm text-destructive">{errors.service_type.message}</p>
               )}
@@ -245,18 +322,32 @@ export function BookingForm({ clientId }: BookingFormProps) {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="deposit_amount">Deposit Amount (Optional)</Label>
+              <Label htmlFor="deposit_amount">Deposit Amount *</Label>
               <Input
                 id="deposit_amount"
                 type="number"
                 step="0.01"
                 min="0"
                 {...register("deposit_amount")}
-                placeholder="Auto-calculated if empty"
+                placeholder="0.00"
                 disabled={loading}
+                onChange={(e) => {
+                  register("deposit_amount").onChange(e)
+                  const value = parseFloat(e.target.value)
+                  if (!isNaN(value) && totalPrice > 0 && value > totalPrice) {
+                    toast({
+                      title: "Invalid amount",
+                      description: "Deposit cannot exceed total price",
+                      variant: "destructive",
+                    })
+                  }
+                }}
               />
+              {errors.deposit_amount && (
+                <p className="text-sm text-destructive">{errors.deposit_amount.message}</p>
+              )}
               <p className="text-xs text-muted-foreground">
-                Leave empty to use default (20% of total)
+                Required deposit amount for this booking
               </p>
             </div>
           </div>

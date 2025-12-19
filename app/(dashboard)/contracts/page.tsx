@@ -1,17 +1,21 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { TemplateList } from "@/components/contracts/template-list"
+import { AIGenerationModal } from "@/components/contracts/ai-generation-modal"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, Sparkles } from "lucide-react"
 import type { ContractTemplate } from "@/types"
 
 export default function ContractsPage() {
   const [templates, setTemplates] = useState<ContractTemplate[]>([])
   const [loading, setLoading] = useState(true)
+  const [aiModalOpen, setAiModalOpen] = useState(false)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     async function fetchTemplates() {
@@ -82,14 +86,36 @@ export default function ContractsPage() {
             Manage your contract templates
           </p>
         </div>
-        <Link href="/contracts/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Template
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setAiModalOpen(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Generate with AI
           </Button>
-        </Link>
+          <Button
+            onClick={() => router.push("/contracts/new")}
+            variant="outline"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Manually
+          </Button>
+        </div>
       </div>
-      <TemplateList templates={templates} />
+      <TemplateList
+        templates={templates}
+        onAIGenerate={() => setAiModalOpen(true)}
+        onManualCreate={() => router.push("/contracts/new")}
+      />
+      <AIGenerationModal
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        onContractGenerated={(contract) => {
+          // Navigate to new template page with generated content
+          router.push(`/contracts/new?content=${encodeURIComponent(contract)}`)
+        }}
+      />
     </div>
   )
 }

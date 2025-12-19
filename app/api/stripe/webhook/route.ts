@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { stripe } from "@/lib/stripe/client"
 import { createClient } from "@/lib/supabase/server"
+import { sendEmail } from "@/lib/email/resend"
+import { getPaymentSuccessEmailTemplate, getPaymentReceivedEmailTemplate } from "@/lib/email/templates"
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -29,6 +31,49 @@ export async function POST(request: NextRequest) {
       { error: `Webhook Error: ${err.message}` },
       { status: 400 }
     )
+  }
+
+  // Handle account.updated for Stripe Connect account status changes
+  if (event.type === "account.updated") {
+    const account = event.data.object as any
+    
+    try {
+      const supabase = await createClient()
+      
+      // Find photographer by stripe_account_id
+      const { data: photographer, error: photographerError } = await supabase
+        .from("photographers")
+        .select("id, user_id")
+        .eq("stripe_account_id", account.id)
+        .single()
+      
+      if (photographerError || !photographer) {
+        console.log("Photographer not found for Stripe account:", account.id)
+        // Not an error - account might not be linked yet
+        return NextResponse.json({ received: true })
+      }
+      
+      // Log account status changes for debugging
+      console.log("Stripe account updated:", {
+        account_id: account.id,
+        photographer_id: photographer.id,
+        charges_enabled: account.charges_enabled,
+        payouts_enabled: account.payouts_enabled,
+        details_submitted: account.details_submitted,
+        past_due_count: account.requirements?.past_due?.length || 0,
+        currently_due_count: account.requirements?.currently_due?.length || 0,
+      })
+      
+      // Note: We don't need to update the database here since the dashboard
+      // fetches requirements in real-time. However, we could store a timestamp
+      // of the last update if needed for caching purposes.
+      
+      return NextResponse.json({ received: true })
+    } catch (error: any) {
+      console.error("Error processing account.updated webhook:", error)
+      // Don't fail the webhook - return success so Stripe doesn't retry
+      return NextResponse.json({ received: true })
+    }
   }
 
   // Handle checkout.session.completed for all payment types
@@ -63,23 +108,54 @@ export async function POST(request: NextRequest) {
       const baseAmount = parseFloat(session.metadata?.baseAmount || "0")
       const amountPaid = session.amount_total ? session.amount_total / 100 : baseAmount
 
+      // Calculate current total paid (including this payment)
+      let currentTotalPaid = 0
+      if (booking.deposit_amount && booking.payment_status === "DEPOSIT_PAID") {
+        currentTotalPaid += Number(booking.deposit_amount)
+      }
+
+      // Parse payment milestones
+      let milestones = booking.payment_milestones
+      if (typeof milestones === "string") {
+        try {
+          milestones = JSON.parse(milestones)
+        } catch (e) {
+          milestones = []
+        }
+      }
+
+      if (milestones && Array.isArray(milestones)) {
+        const milestonePaid = milestones.reduce(
+          (paid: number, milestone: any) => {
+            if (milestone.status === "paid" && milestone.amount) {
+              return paid + Number(milestone.amount)
+            }
+            return paid
+          },
+          0
+        )
+        currentTotalPaid += milestonePaid
+      }
+
+      // Add the current payment
+      currentTotalPaid += amountPaid
+
       // Determine payment status based on amount paid vs total
       let paymentStatus = booking.payment_status
       let bookingStatus = booking.status
+      const totalPrice = Number(booking.total_price) || 0
+      const isFinalPayment = currentTotalPaid >= totalPrice
 
       if (type === "deposit") {
-        // For deposits, mark as DEPOSIT_PAID
+        // For deposits, mark as DEPOSIT_PAID and set status to Active
         paymentStatus = "DEPOSIT_PAID"
-        bookingStatus = booking.status === "contract_signed" ? "payment_pending" : booking.status
+        bookingStatus = "Active"
       } else {
         // For full payments or milestones, check if fully paid
-        const totalPaid = (booking.deposit_amount || 0) + amountPaid
-        const totalPrice = booking.total_price
-
-        if (totalPaid >= totalPrice) {
+        if (isFinalPayment) {
           paymentStatus = "paid"
           bookingStatus = "completed"
-        } else if (totalPaid > 0) {
+        } else if (currentTotalPaid > 0) {
           paymentStatus = "partial"
         }
       }
@@ -94,19 +170,138 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", bookingId)
 
-      // Trigger notification
+      // Send payment confirmation emails
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/notifications/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "payment_received",
-            bookingId,
-            amount: baseAmount,
-          }),
-        })
-      } catch (notifError) {
-        console.error("Failed to send notification:", notifError)
+        // Get photographer and client details
+        const { data: photographer } = await supabase
+          .from("photographers")
+          .select("email, business_name, studio_name, logo_url")
+          .eq("id", booking.photographer_id)
+          .single()
+
+        const { data: client } = await supabase
+          .from("clients")
+          .select("name, email")
+          .eq("id", booking.client_id)
+          .single()
+
+        const clientEmail = booking.client_email || client?.email
+        const clientName = client?.name || "Client"
+        const studioName = photographer?.business_name || photographer?.studio_name || photographer?.email || "Studio"
+
+        // If this was the final payment, send PaymentSuccess email to client
+        if (isFinalPayment && clientEmail) {
+          const paymentSuccessTemplate = getPaymentSuccessEmailTemplate(
+            clientName,
+            amountPaid,
+            studioName,
+            photographer?.logo_url,
+            {} // socialLinks can be added later
+          )
+
+          await sendEmail({
+            to: clientEmail,
+            subject: paymentSuccessTemplate.subject,
+            html: paymentSuccessTemplate.html,
+            text: paymentSuccessTemplate.text,
+          })
+        }
+
+        // Send notification to photographer
+        if (photographer && photographer.email) {
+          if (type === "deposit" && paymentStatus === "DEPOSIT_PAID") {
+            // Deposit paid notification
+            const { getPaymentConfirmedEmailTemplate } = await import("@/lib/email/templates")
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+            const bookingUrl = `${appUrl}/bookings/${bookingId}`
+            
+            const emailTemplate = getPaymentConfirmedEmailTemplate(
+              studioName,
+              clientName,
+              baseAmount,
+              bookingId,
+              booking.service_type,
+              booking.event_date,
+              bookingUrl
+            )
+
+            await sendEmail({
+              to: photographer.email,
+              subject: emailTemplate.subject,
+              html: emailTemplate.html,
+              text: emailTemplate.text,
+            })
+          } else if (isFinalPayment) {
+            // Final payment notification
+            const finalPaymentTemplate = {
+              subject: `🎉 Good news! ${clientName} just paid their final balance`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #333;">Payment Received!</h2>
+                  <p>Great news! ${clientName} just paid their final balance of $${amountPaid.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}.</p>
+                  <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                    <p><strong>Client:</strong> ${clientName}</p>
+                    <p><strong>Amount:</strong> $${amountPaid.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}</p>
+                    <p><strong>Service:</strong> ${booking.service_type}</p>
+                    <p><strong>Booking ID:</strong> ${bookingId}</p>
+                  </div>
+                  <p>This booking is now fully paid and marked as completed.</p>
+                </div>
+              `,
+              text: `
+Payment Received!
+
+Great news! ${clientName} just paid their final balance of $${amountPaid.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}.
+
+Client: ${clientName}
+Amount: $${amountPaid.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+Service: ${booking.service_type}
+Booking ID: ${bookingId}
+
+This booking is now fully paid and marked as completed.
+              `,
+            }
+
+            await sendEmail({
+              to: photographer.email,
+              subject: finalPaymentTemplate.subject,
+              html: finalPaymentTemplate.html,
+              text: finalPaymentTemplate.text,
+            })
+          }
+        }
+      } catch (emailError) {
+        console.error("Failed to send payment confirmation emails:", emailError)
+        // Don't fail the webhook if email fails
+      }
+
+      // Trigger notification (for other payment types)
+      if (type !== "deposit") {
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/notifications/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "payment_received",
+              bookingId,
+              amount: baseAmount,
+            }),
+          })
+        } catch (notifError) {
+          console.error("Failed to send notification:", notifError)
+        }
       }
 
       return NextResponse.json({ received: true })

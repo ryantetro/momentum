@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,25 +22,41 @@ export async function POST(request: NextRequest) {
     // Extract User Agent from request headers
     const userAgent = request.headers.get("user-agent") || "Unknown"
 
-    const supabase = await createClient()
+    // Use admin client to bypass RLS for unauthenticated portal access
+    const supabase = createAdminClient()
 
     // Update booking with new schema fields including audit trail
-    const { error } = await supabase
+    // Note: We set both contract_signed_by and client_signature_name for backward compatibility
+    const { data: updatedBooking, error } = await supabase
       .from("bookings")
       .update({
         contract_signed: true,
         contract_signed_at: new Date().toISOString(),
-        contract_signed_by: clientName,
         client_signature_name: clientName,
         signature_ip_address: ipAddress,
         signature_user_agent: userAgent,
         status: "contract_signed",
       })
       .eq("id", bookingId)
+      .select("contract_signed_at, contract_signed, client_signature_name")
+      .single()
 
     if (error) {
+      console.error("Error updating booking signature:", error)
       throw error
     }
+
+    // Verify the update succeeded
+    if (!updatedBooking || !updatedBooking.contract_signed_at) {
+      console.error("Signature update may have failed - contract_signed_at is null")
+      throw new Error("Failed to verify signature was saved")
+    }
+
+    console.log("Contract signature saved successfully:", {
+      bookingId,
+      contract_signed_at: updatedBooking.contract_signed_at,
+      client_signature_name: updatedBooking.client_signature_name,
+    })
 
     // Trigger notification
     try {
@@ -57,7 +73,11 @@ export async function POST(request: NextRequest) {
       // Don't fail if notification fails
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ 
+      success: true,
+      contract_signed_at: updatedBooking.contract_signed_at,
+      client_signature_name: updatedBooking.client_signature_name,
+    })
   } catch (error: any) {
     console.error("Error signing contract:", error)
     return NextResponse.json(

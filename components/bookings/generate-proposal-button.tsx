@@ -11,9 +11,15 @@ import { ProposalEmailTemplate } from "./proposal-email-template"
 interface GenerateProposalButtonProps {
   bookingId: string
   photographerId: string
+  onProposalGenerated?: (data: {
+    portalUrl: string
+    clientName: string
+    photographerName: string
+    serviceType: string
+  }) => void
 }
 
-export function GenerateProposalButton({ bookingId, photographerId }: GenerateProposalButtonProps) {
+export function GenerateProposalButton({ bookingId, photographerId, onProposalGenerated }: GenerateProposalButtonProps) {
   const [loading, setLoading] = useState(false)
   const [portalUrl, setPortalUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -49,9 +55,23 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
           setPortalUrl(url)
 
           const client = booking.clients as any
-          setClientName(client?.name || "Client")
-          setPhotographerName(photographer.business_name || photographer.email || "Photographer")
-          setServiceType(booking.service_type)
+          const clientNameValue = client?.name || "Client"
+          const photographerNameValue = photographer.business_name || photographer.email || "Photographer"
+          const serviceTypeValue = booking.service_type
+          
+          setClientName(clientNameValue)
+          setPhotographerName(photographerNameValue)
+          setServiceType(serviceTypeValue)
+          
+          // Notify parent component
+          if (onProposalGenerated) {
+            onProposalGenerated({
+              portalUrl: url,
+              clientName: clientNameValue,
+              photographerName: photographerNameValue,
+              serviceType: serviceTypeValue,
+            })
+          }
         }
       } catch (error) {
         // Silently fail - proposal may not exist yet
@@ -133,11 +153,30 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
       const url = `${baseUrl}/portal/${booking.portal_token}`
       setPortalUrl(url)
 
+      // Trigger a page refresh to update UI
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('booking-updated'))
+      }
+
       // Store data for email template
       const client = booking.clients as any
-      setClientName(client?.name || "Client")
-      setPhotographerName(photographer.business_name || photographer.email || "Photographer")
-      setServiceType(booking.service_type)
+      const clientNameValue = client?.name || "Client"
+      const photographerNameValue = photographer.business_name || photographer.email || "Photographer"
+      const serviceTypeValue = booking.service_type
+      
+      setClientName(clientNameValue)
+      setPhotographerName(photographerNameValue)
+      setServiceType(serviceTypeValue)
+      
+      // Notify parent component
+      if (onProposalGenerated) {
+        onProposalGenerated({
+          portalUrl: url,
+          clientName: clientNameValue,
+          photographerName: photographerNameValue,
+          serviceType: serviceTypeValue,
+        })
+      }
 
       toast({ title: "Proposal link generated successfully!" })
     } catch (error: any) {
@@ -218,14 +257,6 @@ export function GenerateProposalButton({ bookingId, photographerId }: GeneratePr
           )}
         </CardContent>
       </Card>
-      {portalUrl && clientName && photographerName && serviceType && (
-        <ProposalEmailTemplate
-          clientName={clientName}
-          photographerName={photographerName}
-          serviceType={serviceType}
-          portalUrl={portalUrl}
-        />
-      )}
     </>
   )
 }

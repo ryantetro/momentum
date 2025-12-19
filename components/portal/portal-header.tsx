@@ -29,24 +29,34 @@ export function PortalHeader({ photographerId }: PortalHeaderProps) {
     fetchPhotographer()
   }, [photographerId, supabase])
 
+  const photographerName =
+    photographer?.business_name || photographer?.studio_name || photographer?.email || "Photographer"
+
   return (
-    <header className="border-b bg-background">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="Momentum Logo"
-            width={40}
-            height={40}
-            className="object-contain"
-          />
-          <div>
-            <h1 className="text-2xl font-bold">
-              {photographer?.business_name || "Momentum"}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Client Portal
-            </p>
+    <header className="border-b border-stone-200 bg-white/80 backdrop-blur-sm">
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {photographer?.logo_url ? (
+              <Image
+                src={photographer.logo_url}
+                alt={`${photographerName} Logo`}
+                width={56}
+                height={56}
+                className="object-contain rounded-lg"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-serif font-bold text-xl shadow-sm">
+                {photographerName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h1 className="text-2xl font-serif font-bold text-stone-900">{photographerName}</h1>
+              <p className="text-sm text-stone-600">Client Portal</p>
+            </div>
+          </div>
+          <div className="text-xs text-stone-500">
+            Powered by <span className="font-semibold text-stone-700">Momentum</span>
           </div>
         </div>
       </div>

@@ -15,11 +15,13 @@ export async function sendEmail({
   subject,
   html,
   text,
+  replyTo,
 }: {
   to: string
   subject: string
   html: string
   text: string
+  replyTo?: string
 }) {
   if (!resend) {
     console.warn("Resend client not initialized. Email not sent:", {
@@ -36,6 +38,7 @@ export async function sendEmail({
       subject,
       html,
       text,
+      ...(replyTo && { reply_to: replyTo }),
     })
 
     if (error) {

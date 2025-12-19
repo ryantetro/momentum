@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ScrollAnimation } from "./scroll-animation"
-import { MockDashboard } from "./mock-dashboard"
+import { InteractiveDemo } from "./interactive-demo"
 
 export function HeroSection() {
   return (
@@ -33,8 +33,8 @@ export function HeroSection() {
           </ScrollAnimation>
         </div>
         
-        {/* Mock Dashboard Preview */}
-        <MockDashboard />
+        {/* Interactive Demo Preview */}
+        <InteractiveDemo />
       </div>
     </section>
   )
