@@ -434,7 +434,18 @@ export default function PortalPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <ContractViewer booking={booking} client={client} />
+              <ContractViewer booking={booking} client={client} photographer={photographer} />
+            </motion.div>
+          )}
+
+          {/* Custom Form - Additional Information (Show before signature if applicable) */}
+          {booking && booking.status !== "Inquiry" && booking.status !== "draft" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+            >
+              <CustomForm bookingId={booking.id} portalToken={token} />
             </motion.div>
           )}
 
@@ -446,7 +457,11 @@ export default function PortalPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
-              <SignatureForm bookingId={booking.id} onSuccess={handleContractSigned} />
+              <SignatureForm
+                bookingId={booking.id}
+                client={client}
+                onSuccess={handleContractSigned}
+              />
             </motion.div>
           )}
 
@@ -558,37 +573,42 @@ export default function PortalPage() {
                 </motion.div>
               )}
 
-              {/* Other Payment Statuses */}
-              {(isSigned || booking.contract_signed_at) && booking.payment_status !== "PENDING_DEPOSIT" && booking.payment_status !== "DEPOSIT_PAID" && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                  <PaymentMilestones booking={booking} />
-                </motion.div>
-              )}
+              {/* Payment Milestones - Show for partial payments or after deposit paid */}
+              {(isSigned || booking.contract_signed_at) &&
+                (booking.payment_status === "DEPOSIT_PAID" ||
+                  booking.payment_status === "partial" ||
+                  (booking.payment_status !== "PENDING_DEPOSIT" && booking.payment_status !== "paid")) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                  >
+                    <PaymentMilestones booking={booking} />
+                  </motion.div>
+                )}
 
-              {(isSigned || booking.contract_signed_at) && booking.payment_status === "DEPOSIT_PAID" && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                  <div className="rounded-lg border border-stone-200 shadow-sm bg-blue-50/80 backdrop-blur-sm p-6 text-center">
-                    <p className="font-semibold text-blue-800">
-                      ✓ Deposit Payment Received
-                    </p>
-                  </div>
-                </motion.div>
-              )}
+            </>
+          )}
 
+          {/* Timeline, Custom Form, and Files - Only show if Proposal Sent or later (not Inquiry/draft) */}
+          {booking && booking.status !== "Inquiry" && booking.status !== "draft" && (
+            <>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
               >
                 <TimelineForm bookingId={booking.id} />
+              </motion.div>
+
+
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+              >
+                <BookingFiles bookingId={booking.id} portalToken={token} />
               </motion.div>
             </>
           )}

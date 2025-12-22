@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { bookingId, clientName } = body
+    const { bookingId, clientName, addressDetails } = body
 
     if (!bookingId || !clientName) {
       return NextResponse.json(
@@ -24,6 +24,38 @@ export async function POST(request: NextRequest) {
 
     // Use admin client to bypass RLS for unauthenticated portal access
     const supabase = createAdminClient()
+
+    // If address details are provided, update the client
+    if (addressDetails) {
+      // First get the client_id from the booking
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("bookings")
+        .select("client_id")
+        .eq("id", bookingId)
+        .single()
+
+      if (bookingError || !bookingData) {
+        console.error("Error fetching booking for client update:", bookingError)
+      } else if (bookingData.client_id) {
+        const { error: clientUpdateError } = await supabase
+          .from("clients")
+          .update({
+            address: addressDetails.address || null,
+            city: addressDetails.city || null,
+            state: addressDetails.state || null,
+            zip: addressDetails.zip || null,
+            country: addressDetails.country || null,
+          })
+          .eq("id", bookingData.client_id)
+
+        if (clientUpdateError) {
+          console.error("Error updating client address:", clientUpdateError)
+          // Don't fail the signing process if address update fails, just log it
+        } else {
+          console.log("Client address updated successfully")
+        }
+      }
+    }
 
     // Update booking with new schema fields including audit trail
     // Note: We set both contract_signed_by and client_signature_name for backward compatibility
@@ -73,7 +105,7 @@ export async function POST(request: NextRequest) {
       // Don't fail if notification fails
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       contract_signed_at: updatedBooking.contract_signed_at,
       client_signature_name: updatedBooking.client_signature_name,

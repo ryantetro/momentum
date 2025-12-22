@@ -130,3 +130,5 @@ SELECT COUNT(*) as total_photographers,
 FROM photographers
 WHERE username IS NOT NULL;
 
+
+

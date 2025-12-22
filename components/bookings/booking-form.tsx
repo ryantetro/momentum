@@ -20,6 +20,7 @@ const bookingSchema = z.object({
   client_id: z.string().min(1, "Client is required"),
   service_type: z.string().min(1, "Service type is required"),
   event_date: z.string().min(1, "Event date is required"),
+  event_location: z.string().optional(),
   total_price: z.string().min(1, "Total price is required"),
   deposit_amount: z.string().min(1, "Deposit amount is required"),
   payment_due_date: z.string().optional(),
@@ -110,7 +111,7 @@ export function BookingForm({ clientId }: BookingFormProps) {
     // Validate deposit amount
     const totalPriceNum = parseFloat(data.total_price)
     const depositAmountNum = parseFloat(data.deposit_amount)
-    
+
     if (depositAmountNum > totalPriceNum) {
       toast({
         title: "Error",
@@ -209,6 +210,7 @@ export function BookingForm({ clientId }: BookingFormProps) {
         client_email: client?.email || null,
         service_type: data.service_type,
         event_date: data.event_date,
+        event_location: data.event_location || null,
         total_price: totalPriceNum,
         deposit_amount: depositAmountNum,
         payment_due_date: paymentDueDate,
@@ -222,11 +224,11 @@ export function BookingForm({ clientId }: BookingFormProps) {
 
       if (error) throw error
 
-      toast({ 
+      toast({
         title: "Booking created successfully",
         description: "Your booking is ready to manage"
       })
-      
+
       if (clientId) {
         router.push(`/clients/${data.client_id}`)
       } else {
@@ -303,6 +305,20 @@ export function BookingForm({ clientId }: BookingFormProps) {
                 <p className="text-sm text-destructive">{errors.event_date.message}</p>
               )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="event_location">Event Location/Venue (Optional)</Label>
+            <Input
+              id="event_location"
+              type="text"
+              placeholder="e.g., Central Park, 123 Main St, New York, NY"
+              {...register("event_location")}
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Venue name or address where the event will take place
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">

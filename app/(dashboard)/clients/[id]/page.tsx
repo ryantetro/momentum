@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { format } from "date-fns"
+import { formatDateSafe } from "@/lib/utils"
 
 export default function ClientDetailPage() {
   const params = useParams()
@@ -120,13 +121,13 @@ export default function ClientDetailPage() {
             <CardTitle>Client Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <ClientForm 
-              clientId={clientId} 
+            <ClientForm
+              clientId={clientId}
               initialData={{
                 name: client.name,
                 email: client.email,
                 phone: client.phone ?? undefined,
-              }} 
+              }}
             />
           </CardContent>
         </Card>
@@ -152,7 +153,7 @@ export default function ClientDetailPage() {
                   {bookings.map((booking) => (
                     <TableRow key={booking.id}>
                       <TableCell className="capitalize">{booking.service_type}</TableCell>
-                      <TableCell>{format(new Date(booking.event_date), "MMM d, yyyy")}</TableCell>
+                      <TableCell>{formatDateSafe(booking.event_date)}</TableCell>
                       <TableCell>${booking.total_price.toLocaleString()}</TableCell>
                       <TableCell className="capitalize">{booking.status.replace("_", " ")}</TableCell>
                     </TableRow>

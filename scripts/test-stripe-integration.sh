@@ -87,3 +87,5 @@ echo "✅ Check your dev server logs for webhook processing!"
 echo "✅ Check your database to verify booking updates!"
 echo ""
 
+
+

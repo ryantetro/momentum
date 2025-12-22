@@ -23,3 +23,5 @@ CHECK (service_type IN ('wedding', 'portrait', 'event'));
 COMMENT ON CONSTRAINT bookings_service_type_check ON bookings IS 
 'Valid service types: wedding, portrait, event';
 
+
+

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Copy, Link2 } from "lucide-react"
 import { useToast } from "@/components/ui/toaster"
 import type { Booking, Client } from "@/types"
-import { cn } from "@/lib/utils"
+import { cn, formatDateSafe } from "@/lib/utils"
 
 interface BookingCardProps {
   booking: Booking & { client?: Client }
@@ -19,10 +19,28 @@ export function BookingCard({ booking }: BookingCardProps) {
 
   // Calculate payment progress
   const calculateProgress = () => {
-    const totalPaid =
-      booking.payment_milestones
-        ?.filter((m) => m.status === "paid")
-        .reduce((sum, m) => sum + m.amount, 0) || 0
+    const status = (booking.payment_status || "").toLowerCase()
+    const milestones = booking.payment_milestones || []
+
+    const milestonesPaid = milestones.reduce(
+      (sum: number, m: any) => (m.status === "paid" ? sum + m.amount : sum),
+      0
+    ) || 0
+
+    const hasPaidDepositMilestone = milestones.some(
+      (m: any) => m.name === "Deposit" && m.status === "paid"
+    )
+
+    const depositPaid = !hasPaidDepositMilestone && (status === "deposit_paid" || status === "paid" || status === "partial")
+      ? (booking.deposit_amount || 0)
+      : 0
+
+    let totalPaid = depositPaid + milestonesPaid
+
+    // If payment status is explicitly 'paid', ensure we show full amount
+    if (status === "paid" && totalPaid < booking.total_price) {
+      totalPaid = booking.total_price
+    }
 
     const percentage = booking.total_price > 0 ? (totalPaid / booking.total_price) * 100 : 0
 
@@ -91,13 +109,13 @@ export function BookingCard({ booking }: BookingCardProps) {
                   const client = Array.isArray((booking as any).clients)
                     ? (booking as any).clients[0]
                     : Array.isArray(booking.client)
-                    ? booking.client[0]
-                    : booking.client || (booking as any).clients
+                      ? booking.client[0]
+                      : booking.client || (booking as any).clients
                   return client?.name || "Unknown Client"
                 })()}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {format(new Date(booking.event_date), "MMM d, yyyy")}
+                {formatDateSafe(booking.event_date)}
               </p>
               <p className="text-xs text-muted-foreground capitalize">
                 {booking.service_type}
@@ -135,7 +153,7 @@ export function BookingCard({ booking }: BookingCardProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Inquiry-specific message */}
             {booking.status === "Inquiry" && (
               <div className="pt-2 border-t">

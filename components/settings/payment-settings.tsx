@@ -124,7 +124,7 @@ export function PaymentSettings() {
               <p className="font-medium">Your payment setup:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Payments are automatically processed when clients pay</li>
-                <li>You receive 96.5% of each payment (3.5% transaction fee added to client total)</li>
+                <li>You receive 100% of your invoiced price (3.5% platform fee added to client total)</li>
                 <li>Funds are deposited to your linked bank account within 2 business days</li>
                 <li>All transactions are secure and PCI-compliant</li>
               </ul>
@@ -135,5 +135,7 @@ export function PaymentSettings() {
     </Card>
   )
 }
+
+
 
 

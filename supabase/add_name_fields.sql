@@ -88,3 +88,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Verify
 SELECT 'Name fields and updated trigger function created' as status;
 
+
+

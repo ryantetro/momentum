@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get("file") as File
     const bookingId = formData.get("bookingId") as string
+    const portalToken = formData.get("portalToken") as string | null
 
     if (!file || !bookingId) {
       return NextResponse.json(
@@ -41,46 +42,101 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check Authorization: Either authenticated Photographer OR Client with Portal Token
     const supabase = await createClient()
-
-    // Verify booking exists and user has access
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data: photographer } = await supabase
-      .from("photographers")
-      .select("id")
-      .eq("user_id", session.user.id)
-      .single()
-
-    if (!photographer) {
-      return NextResponse.json(
-        { error: "Photographer not found" },
-        { status: 404 }
-      )
-    }
-
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .select("id, photographer_id")
-      .eq("id", bookingId)
-      .eq("photographer_id", photographer.id)
-      .single()
-
-    if (bookingError || !booking) {
-      return NextResponse.json(
-        { error: "Booking not found or access denied" },
-        { status: 404 }
-      )
-    }
-
-    // Use admin client for storage operations
     const adminClient = createAdminClient()
+
+    let uploaderId: string | undefined = undefined
+    let isPhotographer = false
+
+    if (portalToken) {
+      // 1. Client Upload (via Portal Token)
+      // Verify token matches booking ID AND fetch photographer_id directly
+      const { data: bookingCheck, error: tokenError } = await adminClient
+        .from("bookings")
+        .select("id, photographer_id")
+        .eq("id", bookingId)
+        .eq("portal_token", portalToken)
+        .single()
+
+      if (tokenError || !bookingCheck) {
+        return NextResponse.json({ error: "Invalid portal token" }, { status: 403 })
+      }
+
+      // The table expects a valid photographer ID in uploaded_by.
+      // For client uploads, we attribute it to the booking's photographer.
+      if (bookingCheck.photographer_id) {
+        uploaderId = bookingCheck.photographer_id
+      } else {
+        console.warn("No photographer_id found for booking", bookingId)
+        // If this happens, we might still fail FK constraint, but this is the best we can do
+        // unless we make the column nullable in schema (which we are avoiding here).
+      }
+
+    } else {
+      // 2. Photographer Upload (via Session)
+      let user = null
+
+      // Check for Authorization header first (more reliable)
+      const authHeader = request.headers.get('Authorization')
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '')
+        const { data, error } = await supabase.auth.getUser(token)
+        if (!error && data.user) {
+          user = data.user
+        }
+      }
+
+      // Fallback to cookie-based getUser if header didn't work
+      if (!user) {
+        try {
+          const { data, error } = await supabase.auth.getUser()
+          if (!error && data.user) {
+            user = data.user
+          } else if (error) {
+            console.error("[Upload] Cookie auth error:", error)
+          }
+        } catch (e) {
+          console.error("[Upload] Session check failed:", e)
+        }
+      }
+
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      const { data: photographer } = await supabase
+        .from("photographers")
+        .select("id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (!photographer) {
+        return NextResponse.json(
+          { error: "Photographer not found" },
+          { status: 404 }
+        )
+      }
+
+      uploaderId = photographer.id
+      isPhotographer = true
+
+      // Verify photographer owns booking
+      const { data: bookingCheck, error: bookingError } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("id", bookingId)
+        .eq("photographer_id", photographer.id)
+        .single()
+
+      if (bookingError || !bookingCheck) {
+        return NextResponse.json(
+          { error: "Booking not found or access denied" },
+          { status: 404 }
+        )
+      }
+    }
+
 
     // Generate unique file name
     const fileExt = file.name.split(".").pop()
@@ -110,16 +166,19 @@ export async function POST(request: NextRequest) {
     } = adminClient.storage.from("booking-files").getPublicUrl(fileName)
 
     // Save file metadata to database
-    const { error: dbError } = await supabase.from("booking_files").insert({
+    // Use adminClient if it's a client upload (bypassing RLS), otherwise standard supabase client is fine,
+    // actually adminClient is safer/easier for both since we validated permission above.
+    const { error: dbError } = await adminClient.from("booking_files").insert({
       booking_id: bookingId,
       file_name: file.name,
       file_url: publicUrl,
       file_size: file.size,
       file_type: file.type,
-      uploaded_by: photographer.id,
+      uploaded_by: uploaderId, // Null for clients
     })
 
     if (dbError) {
+      console.error("DB Insert Error:", dbError)
       // If database insert fails, try to delete the uploaded file
       await adminClient.storage.from("booking-files").remove([fileName])
       throw dbError

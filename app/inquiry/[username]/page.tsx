@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
-import { InquiryForm } from "@/components/inquiry/inquiry-form"
-import { InquirySuccess } from "@/components/inquiry/inquiry-success"
 import { InquiryPageClient } from "./inquiry-page-client"
 import { PhotographerAvatar } from "@/components/inquiry/photographer-avatar"
+import { ToastProvider } from "@/components/ui/toaster"
 
 export default async function InquiryPage({
   params,
@@ -28,7 +27,7 @@ export default async function InquiryPage({
       .select("id, business_name, studio_name, logo_url, email, username")
       .ilike("username", username)
       .single()
-    
+
     photographer = photographerData
     error = photographerError
   }
@@ -41,7 +40,7 @@ export default async function InquiryPage({
       .select("first_name, last_name")
       .eq("id", photographer.id)
       .single()
-    
+
     // Only merge if we got data and no error (columns exist)
     // Error code 42703 means column doesn't exist
     if (nameData && !nameError) {
@@ -63,7 +62,7 @@ export default async function InquiryPage({
       console.error('Photographer lookup error:', error)
       console.error('Looking for username:', username)
     }
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center space-y-4 p-8">
@@ -82,53 +81,55 @@ export default async function InquiryPage({
   }
 
   // Priority: Business Name → Studio Name → First + Last Name → Email
-  const photographerName = 
-    photographer.business_name || 
-    photographer.studio_name || 
-    (photographer.first_name && photographer.last_name 
-      ? `${photographer.first_name} ${photographer.last_name}` 
+  const photographerName =
+    photographer.business_name ||
+    photographer.studio_name ||
+    (photographer.first_name && photographer.last_name
+      ? `${photographer.first_name} ${photographer.last_name}`
       : null) ||
     photographer.email
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      <div className="container mx-auto px-4 py-8 md:py-16">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-100">
-            {/* Header */}
-            <div className="text-center mb-10">
-              <div className="mb-6 flex justify-center">
-                <PhotographerAvatar
-                  logoUrl={photographer.logo_url}
-                  name={photographerName}
-                  size="lg"
-                />
+    <ToastProvider>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <div className="container mx-auto px-4 py-8 md:py-16">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-100">
+              {/* Header */}
+              <div className="text-center mb-10">
+                <div className="mb-6 flex justify-center">
+                  <PhotographerAvatar
+                    logoUrl={photographer.logo_url}
+                    name={photographerName}
+                    size="lg"
+                  />
+                </div>
+                <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Inquire with {photographerName}
+                </h1>
+                <p className="text-lg text-gray-600 max-w-md mx-auto">
+                  Tell us about your event and we'll get back to you shortly!
+                </p>
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Inquire with {photographerName}
-              </h1>
-              <p className="text-lg text-gray-600 max-w-md mx-auto">
-                Tell us about your event and we'll get back to you shortly!
-              </p>
-            </div>
 
-            {/* Form */}
-            <InquiryPageClient
-              photographerId={photographer.id}
-              photographerName={photographerName}
-            />
+              {/* Form */}
+              <InquiryPageClient
+                photographerId={photographer.id}
+                photographerName={photographerName}
+              />
 
-            {/* Powered by Momentum */}
-            <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-              <p className="text-xs text-gray-400">
-                Powered by{" "}
-                <span className="font-semibold text-gray-600">Momentum</span>
-              </p>
+              {/* Powered by Momentum */}
+              <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+                <p className="text-xs text-gray-400">
+                  Powered by{" "}
+                  <span className="font-semibold text-gray-600">Momentum</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </ToastProvider>
   )
 }
 

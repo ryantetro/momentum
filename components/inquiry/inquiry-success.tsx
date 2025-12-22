@@ -24,3 +24,5 @@ export function InquirySuccess({ clientName, photographerName }: InquirySuccessP
   )
 }
 
+
+

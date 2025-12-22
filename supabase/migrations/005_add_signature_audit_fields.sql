@@ -6,3 +6,5 @@ ALTER TABLE bookings
 ADD COLUMN IF NOT EXISTS signature_user_agent TEXT;
 
 
+
+

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toaster"
 import { Copy, Check, Send } from "lucide-react"
 import { ProposalEmailTemplate } from "./proposal-email-template"
+import { formatDateSafe } from "@/lib/utils"
 
 interface GenerateProposalButtonProps {
   bookingId: string
@@ -58,11 +59,11 @@ export function GenerateProposalButton({ bookingId, photographerId, onProposalGe
           const clientNameValue = client?.name || "Client"
           const photographerNameValue = photographer.business_name || photographer.email || "Photographer"
           const serviceTypeValue = booking.service_type
-          
+
           setClientName(clientNameValue)
           setPhotographerName(photographerNameValue)
           setServiceType(serviceTypeValue)
-          
+
           // Notify parent component
           if (onProposalGenerated) {
             onProposalGenerated({
@@ -132,7 +133,7 @@ export function GenerateProposalButton({ bookingId, photographerId, onProposalGe
       // Replace placeholders in contract template
       const contractText = photographer.contract_template
         .replace(/\{\{client_name\}\}/g, (booking.clients as any)?.name || "Client")
-        .replace(/\{\{event_date\}\}/g, new Date(booking.event_date).toLocaleDateString())
+        .replace(/\{\{event_date\}\}/g, formatDateSafe(booking.event_date))
         .replace(/\{\{total_price\}\}/g, `$${booking.total_price.toLocaleString()}`)
         .replace(/\{\{service_type\}\}/g, booking.service_type)
 
@@ -163,11 +164,11 @@ export function GenerateProposalButton({ bookingId, photographerId, onProposalGe
       const clientNameValue = client?.name || "Client"
       const photographerNameValue = photographer.business_name || photographer.email || "Photographer"
       const serviceTypeValue = booking.service_type
-      
+
       setClientName(clientNameValue)
       setPhotographerName(photographerNameValue)
       setServiceType(serviceTypeValue)
-      
+
       // Notify parent component
       if (onProposalGenerated) {
         onProposalGenerated({

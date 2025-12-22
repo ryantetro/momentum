@@ -12,3 +12,5 @@ COMMENT ON COLUMN clients.notes IS
 -- Migration complete
 -- ============================================================================
 
+
+

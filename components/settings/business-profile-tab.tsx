@@ -34,6 +34,11 @@ export function BusinessProfileTab() {
     facebook: "",
     twitter: "",
   })
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
+  const [state, setState] = useState("")
+  const [zip, setZip] = useState("")
+  const [country, setCountry] = useState("")
 
   useEffect(() => {
     async function fetchPhotographer() {
@@ -76,6 +81,11 @@ export function BusinessProfileTab() {
               twitter: "",
             }
           )
+          setAddress(data.address || "")
+          setCity(data.city || "")
+          setState(data.state || "")
+          setZip(data.zip || "")
+          setCountry(data.country || "")
         }
       } catch (error) {
         console.error("Error fetching photographer:", error)
@@ -248,6 +258,11 @@ export function BusinessProfileTab() {
           phone: phone || null,
           website: website || null,
           social_links: socialLinks,
+          address: address || null,
+          city: city || null,
+          state: state || null,
+          zip: zip || null,
+          country: country || null,
         })
         .eq("id", photographer.id)
 
@@ -434,6 +449,62 @@ export function BusinessProfileTab() {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+1 (555) 123-4567"
             />
+          </div>
+        </div>
+
+        {/* Address */}
+        <div className="space-y-4">
+          <Label className="text-base">Business Address</Label>
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="address">Street Address</Label>
+              <Input
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="123 Studio Way"
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="San Francisco"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State / Province</Label>
+                <Input
+                  id="state"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="CA"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="zip">ZIP / Postal Code</Label>
+                <Input
+                  id="zip"
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value)}
+                  placeholder="94105"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="United States"
+                />
+              </div>
+            </div>
           </div>
         </div>
 

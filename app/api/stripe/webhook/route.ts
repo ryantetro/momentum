@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { stripe } from "@/lib/stripe/client"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email/resend"
 import { getPaymentSuccessEmailTemplate, getPaymentReceivedEmailTemplate } from "@/lib/email/templates"
 
@@ -36,23 +37,23 @@ export async function POST(request: NextRequest) {
   // Handle account.updated for Stripe Connect account status changes
   if (event.type === "account.updated") {
     const account = event.data.object as any
-    
+
     try {
       const supabase = await createClient()
-      
+
       // Find photographer by stripe_account_id
       const { data: photographer, error: photographerError } = await supabase
         .from("photographers")
         .select("id, user_id")
         .eq("stripe_account_id", account.id)
         .single()
-      
+
       if (photographerError || !photographer) {
         console.log("Photographer not found for Stripe account:", account.id)
         // Not an error - account might not be linked yet
         return NextResponse.json({ received: true })
       }
-      
+
       // Log account status changes for debugging
       console.log("Stripe account updated:", {
         account_id: account.id,
@@ -63,11 +64,11 @@ export async function POST(request: NextRequest) {
         past_due_count: account.requirements?.past_due?.length || 0,
         currently_due_count: account.requirements?.currently_due?.length || 0,
       })
-      
+
       // Note: We don't need to update the database here since the dashboard
       // fetches requirements in real-time. However, we could store a timestamp
       // of the last update if needed for caching purposes.
-      
+
       return NextResponse.json({ received: true })
     } catch (error: any) {
       console.error("Error processing account.updated webhook:", error)
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
     const session = event.data.object as any
     const bookingId = session.metadata?.bookingId
     const type = session.metadata?.type
+    const milestoneId = session.metadata?.milestoneId
 
     if (!bookingId) {
       console.error("Missing bookingId in checkout session metadata")
@@ -88,7 +90,8 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const supabase = await createClient()
+      // Use admin client to bypass RLS for unauthenticated webhook requests
+      const supabase = createAdminClient()
 
       // Get booking
       const { data: booking, error: bookingError } = await supabase
@@ -108,13 +111,7 @@ export async function POST(request: NextRequest) {
       const baseAmount = parseFloat(session.metadata?.baseAmount || "0")
       const amountPaid = session.amount_total ? session.amount_total / 100 : baseAmount
 
-      // Calculate current total paid (including this payment)
-      let currentTotalPaid = 0
-      if (booking.deposit_amount && booking.payment_status === "DEPOSIT_PAID") {
-        currentTotalPaid += Number(booking.deposit_amount)
-      }
-
-      // Parse payment milestones
+      // Update milestones status first
       let milestones = booking.payment_milestones
       if (typeof milestones === "string") {
         try {
@@ -124,8 +121,57 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (milestones && Array.isArray(milestones)) {
-        const milestonePaid = milestones.reduce(
+      if (!milestones) milestones = []
+
+      // Update the specific milestone status if applicable
+      console.log("🔍 Webhook: Updating milestones", {
+        type,
+        milestoneId,
+        milestonesCount: milestones.length,
+        milestoneIds: milestones.map((m: any) => ({ id: m.id, name: m.name }))
+      })
+
+      const updatedMilestones = milestones.map((m: any) => {
+        // For deposit payments, update the Deposit milestone
+        if (type === "deposit" && m.name === "Deposit") {
+          console.log("✅ Marking Deposit milestone as paid")
+          return {
+            ...m,
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_checkout_session_id: session.id
+          }
+        }
+        // For milestone payments, update by ID
+        if (type === "milestone" && m.id === milestoneId) {
+          console.log(`✅ Marking milestone ${m.name} (${m.id}) as paid`)
+          return {
+            ...m,
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_checkout_session_id: session.id
+          }
+        }
+        return m
+      })
+
+      // Calculate current total paid based on updated milestones
+      let currentTotalPaid = 0
+
+      // Add deposit amount if it wasn't part of milestones (legacy check)
+      // But now we try to track it in milestones too. 
+      // Safe fallback: if we updated a Deposit milestone or type is deposit, count the deposit amount
+      if (type === "deposit" || (booking.payment_status === "DEPOSIT_PAID")) {
+        // If we have a milestone named Deposit that is paid, it will be summed below.
+        // If not, we manually add booking.deposit_amount
+        const hasDepositMilestone = updatedMilestones.some((m: any) => m.name === "Deposit")
+        if (!hasDepositMilestone && booking.deposit_amount) {
+          currentTotalPaid += Number(booking.deposit_amount)
+        }
+      }
+
+      if (updatedMilestones && Array.isArray(updatedMilestones)) {
+        const milestonePaid = updatedMilestones.reduce(
           (paid: number, milestone: any) => {
             if (milestone.status === "paid" && milestone.amount) {
               return paid + Number(milestone.amount)
@@ -136,9 +182,6 @@ export async function POST(request: NextRequest) {
         )
         currentTotalPaid += milestonePaid
       }
-
-      // Add the current payment
-      currentTotalPaid += amountPaid
 
       // Determine payment status based on amount paid vs total
       let paymentStatus = booking.payment_status
@@ -160,15 +203,30 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Update booking payment status
-      await supabase
+      // Update booking payment status AND milestones
+      console.log("💾 Updating booking in database", {
+        bookingId,
+        paymentStatus,
+        bookingStatus,
+        milestonesUpdated: updatedMilestones.filter((m: any) => m.status === "paid").length
+      })
+
+      const { error: updateError } = await supabase
         .from("bookings")
         .update({
+          payment_milestones: updatedMilestones,
           payment_status: paymentStatus,
           stripe_payment_intent_id: session.payment_intent || booking.stripe_payment_intent_id,
           status: bookingStatus,
         })
         .eq("id", bookingId)
+
+      if (updateError) {
+        console.error("❌ Failed to update booking:", updateError)
+        throw updateError
+      }
+
+      console.log("✅ Booking updated successfully")
 
       // Send payment confirmation emails
       try {
@@ -214,7 +272,7 @@ export async function POST(request: NextRequest) {
             const { getPaymentConfirmedEmailTemplate } = await import("@/lib/email/templates")
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
             const bookingUrl = `${appUrl}/bookings/${bookingId}`
-            
+
             const emailTemplate = getPaymentConfirmedEmailTemplate(
               studioName,
               clientName,
@@ -239,15 +297,15 @@ export async function POST(request: NextRequest) {
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                   <h2 style="color: #333;">Payment Received!</h2>
                   <p>Great news! ${clientName} just paid their final balance of $${amountPaid.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}.</p>
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}.</p>
                   <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
                     <p><strong>Client:</strong> ${clientName}</p>
                     <p><strong>Amount:</strong> $${amountPaid.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}</p>
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}</p>
                     <p><strong>Service:</strong> ${booking.service_type}</p>
                     <p><strong>Booking ID:</strong> ${bookingId}</p>
                   </div>
@@ -314,14 +372,16 @@ This booking is now fully paid and marked as completed.
     }
   }
 
-  // Handle the event
+  // Handle payment_intent.succeeded (legacy/fallback)
+  // Note: When using Checkout Sessions, metadata is on the session, not the payment intent
+  // So we gracefully skip if metadata is missing (checkout.session.completed handles it)
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as any
     const { bookingId, milestoneId } = paymentIntent.metadata
 
     if (!bookingId || !milestoneId) {
-      console.error("Missing metadata in payment intent")
-      return NextResponse.json({ error: "Missing metadata" }, { status: 400 })
+      console.log("Payment intent succeeded but missing metadata - likely handled by checkout.session.completed")
+      return NextResponse.json({ received: true })
     }
 
     try {
@@ -347,10 +407,10 @@ This booking is now fully paid and marked as completed.
       const updatedMilestones = milestones.map((m: any) =>
         m.id === milestoneId
           ? {
-              ...m,
-              status: "paid",
-              paid_at: new Date().toISOString(),
-            }
+            ...m,
+            status: "paid",
+            paid_at: new Date().toISOString(),
+          }
           : m
       )
 

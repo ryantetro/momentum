@@ -7,6 +7,7 @@ import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
 import { MilestoneTracker } from "@/components/portal/milestone-tracker"
 import type { Booking, Client, Photographer } from "@/types"
+import { formatDateSafe } from "@/lib/utils"
 
 interface BookingDetailsProps {
   booking: Booking
@@ -52,7 +53,7 @@ export function BookingDetails({ booking, client }: BookingDetailsProps) {
               <p className="text-lg md:text-xl text-stone-600 mb-4 leading-relaxed">
                 Your proposal for your <strong className="font-semibold text-stone-900">{capitalizedServiceType}</strong> is ready for review.
               </p>
-              
+
               {/* Service Details */}
               <div className="flex flex-wrap gap-4 mt-6">
                 <div className="px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
@@ -62,12 +63,12 @@ export function BookingDetails({ booking, client }: BookingDetailsProps) {
                 <div className="px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
                   <p className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-1">Event Date</p>
                   <p className="text-base font-semibold text-purple-900">
-                    {format(new Date(booking.event_date), "MMMM d, yyyy")}
+                    {formatDateSafe(booking.event_date, "MMMM d, yyyy")}
                   </p>
                 </div>
               </div>
             </div>
-            
+
             {/* Studio Logo (if available) */}
             {photographer?.logo_url && (
               <div className="flex-shrink-0">

@@ -22,3 +22,5 @@ FROM pg_policies
 WHERE tablename = 'photographers'
   AND policyname = 'Public can view photographers by username';
 
+
+

@@ -37,3 +37,5 @@ export async function copyInquiryLink(url: string): Promise<void> {
   }
 }
 
+
+

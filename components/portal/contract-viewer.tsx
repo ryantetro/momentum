@@ -1,20 +1,27 @@
-"use client"
-
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
 import { Download, FileText } from "lucide-react"
-import type { Booking, Client } from "@/types"
-import { markdownToHtml, isMarkdown } from "@/lib/markdown"
+import type { Booking, Client, Photographer } from "@/types"
 import { SignatureSeal } from "./signature-seal"
+import { formatDateSafe } from "@/lib/utils"
+import { marked } from "marked"
+import { cn } from "@/lib/utils"
+
+// Configure marked
+marked.use({
+  gfm: true,
+  breaks: true,
+})
 
 interface ContractViewerProps {
   booking: Booking
   client: Client
+  photographer?: Photographer | null
 }
 
-export function ContractViewer({ booking, client }: ContractViewerProps) {
+export function ContractViewer({ booking, client, photographer }: ContractViewerProps) {
   const [isPrinting, setIsPrinting] = useState(false)
 
   if (!booking.contract_text) {
@@ -31,27 +38,50 @@ export function ContractViewer({ booking, client }: ContractViewerProps) {
   }
 
   // Replace placeholders in contract text
-  let contractText = booking.contract_text
-    .replace(/\{\{client_name\}\}/g, client.name)
-    .replace(/\{\{event_date\}\}/g, format(new Date(booking.event_date), "MMMM d, yyyy"))
-    .replace(/\{\{total_price\}\}/g, `$${booking.total_price.toLocaleString()}`)
-    .replace(/\{\{service_type\}\}/g, booking.service_type)
+  const contractText = useMemo(() => {
+    let text = booking.contract_text || ""
 
-  // Check if contract text is Markdown
-  if (isMarkdown(contractText)) {
-    // Convert Markdown to HTML
-    contractText = markdownToHtml(contractText)
-  } else {
-    // Check if contract text contains HTML tags
-    const hasHTML = /<[a-z][\s\S]*>/i.test(contractText)
-
-    // If no HTML, convert line breaks to <br> tags
-    if (!hasHTML) {
-      contractText = contractText.split('\n').map((line, i) => 
-        line.trim() ? `<p class="mb-3">${line}</p>` : '<br/>'
-      ).join('')
+    // Helper for safe replacement
+    const replace = (pattern: RegExp, value: string | null | undefined) => {
+      text = text.replace(pattern, value || "_________________")
     }
-  }
+
+    // Photographer Details
+    const photographerName = photographer?.business_name ||
+      (photographer?.first_name ? `${photographer.first_name} ${photographer.last_name}` : "Photographer")
+
+    replace(/\{\{photographer_name\}\}/g, photographerName)
+    replace(/\{\{photographer_email\}\}/g, photographer?.email)
+    replace(/\{\{photographer_phone\}\}/g, photographer?.phone)
+    replace(/\{\{photographer_address\}\}/g, "_________________")
+
+    // Client Details
+    replace(/\{\{client_name\}\}/g, client.name)
+    replace(/\{\{client_email\}\}/g, client.email)
+    replace(/\{\{client_phone\}\}/g, client.phone)
+    replace(/\{\{client_address\}\}/g, "_________________")
+
+    // Event/Booking Details
+    replace(/\{\{event_date\}\}/g, formatDateSafe(booking.event_date, "MMMM d, yyyy"))
+    replace(/\{\{agreement_date\}\}/g, formatDateSafe(booking.created_at, "MMMM d, yyyy"))
+    replace(/\{\{total_price\}\}/g, `$${booking.total_price.toLocaleString()}`)
+    replace(/\{\{service_type\}\}/g, booking.service_type)
+
+    // Strip triple backticks if present
+    if (text.trim().startsWith("```")) {
+      text = text.trim().replace(/^```[a-z]*\n/i, "").replace(/\n```$/i, "")
+    }
+    return text
+  }, [booking, client, photographer])
+
+  const html = useMemo(() => {
+    try {
+      return marked.parse(contractText)
+    } catch (e) {
+      console.error("Error parsing markdown:", e)
+      return contractText
+    }
+  }, [contractText])
 
   const handleDownloadPDF = () => {
     setIsPrinting(true)
@@ -67,34 +97,32 @@ export function ContractViewer({ booking, client }: ContractViewerProps) {
         <head>
           <title>Contract - ${client.name}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
             body {
-              font-family: 'Playfair Display', serif;
+              font-family: system-ui, -apple-system, sans-serif;
               max-width: 800px;
               margin: 40px auto;
               padding: 20px;
-              line-height: 1.8;
+              line-height: 1.6;
               color: #1a1a1a;
             }
             h1, h2, h3 {
-              font-weight: 600;
+              font-weight: 700;
               margin-top: 24px;
               margin-bottom: 12px;
             }
-            p {
-              margin-bottom: 12px;
-            }
+            p { margin-bottom: 12px; }
+            ul { margin-left: 20px; margin-bottom: 12px; }
             @media print {
               body { margin: 0; padding: 20px; }
             }
           </style>
         </head>
         <body>
-          ${contractText}
+          ${html}
           ${booking.contract_signed_at ? `
             <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #000;">
               <p><strong>Signed by:</strong> ${booking.client_signature_name || booking.contract_signed_by}</p>
-              <p><strong>Signed on:</strong> ${format(new Date(booking.contract_signed_at), "MMMM d, yyyy 'at' h:mm a")}</p>
+              <p><strong>Signed on:</strong> ${formatDateSafe(booking.contract_signed_at, "MMMM d, yyyy 'at' h:mm a")}</p>
             </div>
           ` : ''}
         </body>
@@ -103,7 +131,7 @@ export function ContractViewer({ booking, client }: ContractViewerProps) {
 
     printWindow.document.write(printContent)
     printWindow.document.close()
-    
+
     setTimeout(() => {
       printWindow.print()
       setIsPrinting(false)
@@ -141,79 +169,26 @@ export function ContractViewer({ booking, client }: ContractViewerProps) {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="p-8 md:p-12">
-        <div className="page-view-container max-w-4xl mx-auto">
-          <div className="page-view bg-white shadow-2xl rounded-sm border border-stone-200">
-            <div className="page-content max-h-[700px] overflow-y-auto">
-              <div 
-                className="prose prose-lg max-w-none font-serif text-stone-900 contract-content"
-                style={{
-                  fontFamily: '"Playfair Display", "Lora", "Georgia", serif',
-                }}
-                dangerouslySetInnerHTML={{ __html: contractText }}
-              />
+      <CardContent className="p-0 bg-stone-50/50">
+        <div className="max-w-4xl mx-auto bg-white min-h-[800px] shadow-sm border-x border-stone-100">
+          <div className="p-8 md:p-12">
+            <div className={cn(
+              "prose prose-stone max-w-none",
+              "prose-headings:text-stone-900 prose-headings:font-bold prose-headings:mt-8 prose-headings:mb-4",
+              "prose-p:text-stone-700 prose-p:leading-relaxed prose-p:mb-4",
+              "prose-strong:text-stone-900 prose-strong:font-bold",
+              "prose-ul:list-disc prose-ul:pl-6 prose-ul:mb-4",
+              "prose-li:text-stone-700 prose-li:mb-1",
+              "break-words overflow-wrap-anywhere"
+            )}>
+              <div dangerouslySetInnerHTML={{ __html: html as string }} />
+            </div>
+
+            <div className="mt-12 pt-8 border-t border-stone-100">
+              <SignatureSeal booking={booking} />
             </div>
           </div>
         </div>
-        <style jsx global>{`
-          .page-view-container {
-            width: 100%;
-            max-width: 8.5in;
-            margin: 0 auto;
-          }
-          
-          .page-view {
-            width: 100%;
-            min-height: 11in;
-            aspect-ratio: 8.5 / 11;
-            max-width: 100%;
-            display: flex;
-            flex-direction: column;
-            background: linear-gradient(to bottom, #fafafa 0%, #ffffff 2%, #ffffff 98%, #fafafa 100%);
-          }
-          
-          .page-content {
-            flex: 1;
-            padding: 1in;
-            background: white;
-            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-          }
-          
-          .contract-content h1,
-          .contract-content h2,
-          .contract-content h3 {
-            font-weight: 600;
-            margin-top: 1em;
-            margin-bottom: 0.5em;
-            color: #1a1a1a;
-          }
-          
-          .contract-content h2 {
-            font-size: 1.25em;
-          }
-          
-          .contract-content p {
-            margin-bottom: 0.75em;
-            line-height: 1.6;
-          }
-          
-          .contract-content ul,
-          .contract-content ol {
-            margin-left: 1.5em;
-            margin-bottom: 0.75em;
-          }
-          
-          .contract-content strong {
-            font-weight: 600;
-          }
-          
-          @media (max-width: 768px) {
-            .page-content {
-              padding: 0.5in;
-            }
-          }
-        `}</style>
-        <SignatureSeal booking={booking} />
       </CardContent>
     </Card>
   )

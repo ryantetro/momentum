@@ -10,3 +10,5 @@ WHERE auto_reminders_enabled = true;
 -- Add comment
 COMMENT ON COLUMN photographers.auto_reminders_enabled IS 'Whether automated payment reminders are enabled for this photographer';
 
+
+

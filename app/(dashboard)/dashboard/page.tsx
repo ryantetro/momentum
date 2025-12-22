@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/components/ui/toaster"
 import Confetti from "react-confetti"
 import type { Booking, Client } from "@/types"
+import { parseDateSafe } from "@/lib/utils"
 
 function DashboardContent() {
   const supabase = createClient()
@@ -28,6 +29,7 @@ function DashboardContent() {
   const [totalClients, setTotalClients] = useState(0)
   const [totalBookings, setTotalBookings] = useState(0)
   const [pendingPayments, setPendingPayments] = useState(0)
+  const [totalRevenue, setTotalRevenue] = useState(0)
   const [projectedRevenue, setProjectedRevenue] = useState(0)
   const [overdueRevenue, setOverdueRevenue] = useState(0)
   const [bookings, setBookings] = useState<(Booking & { client?: Client })[]>([])
@@ -237,6 +239,38 @@ function DashboardContent() {
             setPendingPayments(pending)
           }
 
+          // Calculate total revenue (all time paid amounts)
+          if (transformedBookings.length > 0) {
+            const totalPaid = transformedBookings.reduce((sum, booking) => {
+              // Parse payment_milestones if it's a string
+              let milestones = booking.payment_milestones
+              if (typeof milestones === 'string') {
+                try {
+                  milestones = JSON.parse(milestones)
+                } catch (e) {
+                  milestones = []
+                }
+              }
+
+              // Sum all paid milestones
+              if (milestones && Array.isArray(milestones)) {
+                const milestonePaid = milestones.reduce(
+                  (paid: number, milestone: any) => {
+                    if (milestone.status === "paid" && milestone.amount) {
+                      return paid + Number(milestone.amount)
+                    }
+                    return paid
+                  },
+                  0
+                )
+                return sum + milestonePaid
+              }
+
+              return sum
+            }, 0)
+            setTotalRevenue(totalPaid)
+          }
+
           // Calculate projected revenue (next 30 days)
           // Only include bookings with signed contracts where balance_due > 0
           // Only calculate if we have bookings data
@@ -253,7 +287,7 @@ function DashboardContent() {
                 return sum
               }
 
-              const eventDate = new Date(booking.event_date)
+              const eventDate = parseDateSafe(booking.event_date)!
               eventDate.setHours(0, 0, 0, 0)
 
               // Only include future events (within next 30 days)
@@ -336,7 +370,7 @@ function DashboardContent() {
                 return sum
               }
 
-              const eventDate = new Date(booking.event_date)
+              const eventDate = parseDateSafe(booking.event_date)!
               eventDate.setHours(0, 0, 0, 0)
 
               // Only include past events
@@ -455,7 +489,7 @@ function DashboardContent() {
 
             // Check if payment_due_date is past
             if (booking.payment_due_date) {
-              const dueDate = new Date(booking.payment_due_date)
+              const dueDate = parseDateSafe(booking.payment_due_date)!
               if (
                 dueDate < nowDate &&
                 booking.payment_status !== "paid" &&
@@ -704,6 +738,7 @@ function DashboardContent() {
         totalClients={totalClients}
         totalBookings={totalBookings}
         pendingPayments={pendingPayments}
+        totalRevenue={totalRevenue}
         projectedRevenue={projectedRevenue}
         overdueRevenue={overdueRevenue}
       />

@@ -33,6 +33,17 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
   // Get today's date in YYYY-MM-DD format for date validation
   const today = new Date().toISOString().split("T")[0]
 
+  const formatPhoneNumber = (value: string) => {
+    if (!value) return value
+    const phoneNumber = value.replace(/[^\d]/g, "")
+    const phoneNumberLength = phoneNumber.length
+    if (phoneNumberLength < 4) return phoneNumber
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`
+  }
+
   const validateStep1 = () => {
     if (!formData.name.trim()) {
       toast({
@@ -42,14 +53,30 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
       })
       return false
     }
-    if (!formData.email.trim() || !formData.email.includes("@")) {
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!formData.email.trim() || !emailRegex.test(formData.email)) {
       toast({
-        title: "Email required",
+        title: "Invalid Email",
         description: "Please enter a valid email address",
         variant: "destructive",
       })
       return false
     }
+
+    // Validate phone only if provided
+    if (formData.phone.trim()) {
+      const digits = formData.phone.replace(/[^\d]/g, "")
+      if (digits.length < 10) {
+        toast({
+          title: "Invalid Phone",
+          description: "Please enter a valid 10-digit phone number",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
     return true
   }
 
@@ -145,17 +172,20 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
                 <User className="h-4 w-4 text-muted-foreground" />
                 Full Name *
               </Label>
-              <Input
-                id="name"
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="John Doe"
-                disabled={loading || submitting}
-                className="pl-10 min-h-[44px]"
-                autoComplete="name"
-              />
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
+                  disabled={loading || submitting}
+                  className="pl-10 min-h-[44px]"
+                  autoComplete="name"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -192,7 +222,7 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
                   type="tel"
                   inputMode="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
                   placeholder="+1 (555) 123-4567"
                   disabled={loading || submitting}
                   className="pl-10 min-h-[44px]"
@@ -201,9 +231,9 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              disabled={loading || submitting} 
+            <Button
+              type="submit"
+              disabled={loading || submitting}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 py-6 text-base font-semibold min-h-[44px]"
             >
               Continue
@@ -297,7 +327,7 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
             </div>
 
             <div className="flex gap-3">
-              <Button 
+              <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
@@ -307,9 +337,9 @@ export function InquiryForm({ photographerId, photographerName, onSuccess }: Inq
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button 
-                type="submit" 
-                disabled={loading || submitting} 
+              <Button
+                type="submit"
+                disabled={loading || submitting}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 py-6 text-base font-semibold min-h-[44px]"
               >
                 {submitting ? (

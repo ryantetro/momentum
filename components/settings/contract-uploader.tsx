@@ -15,6 +15,7 @@ export function ContractUploader({ onContractParsed }: ContractUploaderProps) {
     const [isUploading, setIsUploading] = useState(false)
     const [isProcessing, setIsProcessing] = useState(false)
     const [fileName, setFileName] = useState<string | null>(null)
+    const [skipAI, setSkipAI] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { toast } = useToast()
 
@@ -36,36 +37,35 @@ export function ContractUploader({ onContractParsed }: ContractUploaderProps) {
         setFileName(file.name)
         setIsUploading(true)
 
-        // Simulate upload delay
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        setIsUploading(false)
-        setIsProcessing(true)
-
         try {
-            // In a real app, we would upload the file to storage and then call the AI
-            // For this demo, we'll simulate the AI parsing the document
+            const formData = new FormData()
+            formData.append("file", file)
+            formData.append("skipAI", skipAI.toString())
+
             const response = await fetch("/api/ai/parse-contract", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+                body: formData,
             })
 
             const data = await response.json()
             if (!response.ok) throw new Error(data.error || "Failed to parse contract")
 
             toast({
-                title: "Contract parsed!",
-                description: "AI has identified dynamic fields and converted your document.",
+                title: skipAI ? "Imported raw text" : "Contract parsed!",
+                description: skipAI
+                    ? "Your contract text has been imported."
+                    : "AI has formatted your document.",
             })
 
             onContractParsed(data.content)
         } catch (error: any) {
             toast({
-                title: "Parsing failed",
+                title: "Import failed",
                 description: error.message || "Could not parse the document.",
                 variant: "destructive",
             })
         } finally {
+            setIsUploading(false)
             setIsProcessing(false)
         }
     }
@@ -75,14 +75,27 @@ export function ContractUploader({ onContractParsed }: ContractUploaderProps) {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Upload className="h-5 w-5 text-stone-600" />
-                    Upload Existing Contract
+                    Upload Contract
                 </CardTitle>
                 <CardDescription>
-                    Upload your PDF or Word contract and our AI will convert it into a dynamic Momentum template.
+                    Import your PDF or Word contract.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="flex flex-col items-center justify-center py-6 text-center space-y-6">
+                    <div className="flex items-center justify-center gap-2 text-sm text-stone-600">
+                        <input
+                            type="checkbox"
+                            id="skip-ai"
+                            checked={skipAI}
+                            onChange={(e) => setSkipAI(e.target.checked)}
+                            className="rounded border-stone-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="skip-ai" className="cursor-pointer font-medium text-stone-700">
+                            Import raw text only (Skip AI formatting)
+                        </label>
+                    </div>
+
                     <AnimatePresence mode="wait">
                         {!isUploading && !isProcessing ? (
                             <motion.div
@@ -135,25 +148,12 @@ export function ContractUploader({ onContractParsed }: ContractUploaderProps) {
 
                                 <div className="space-y-2">
                                     <p className="font-semibold text-stone-800">
-                                        {isUploading ? "Uploading..." : "AI is Analyzing..."}
+                                        {isUploading ? "Uploading..." : (skipAI ? "Extracting Text..." : "AI Formatting...")}
                                     </p>
                                     <p className="text-sm text-stone-500 truncate px-4">
                                         {fileName}
                                     </p>
                                 </div>
-
-                                <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">
-                                    <motion.div
-                                        className="h-full bg-blue-600"
-                                        initial={{ width: "0%" }}
-                                        animate={{ width: isUploading ? "50%" : "100%" }}
-                                        transition={{ duration: 2 }}
-                                    />
-                                </div>
-
-                                <p className="text-xs text-stone-400 italic">
-                                    {isProcessing ? "Identifying names, dates, and legal clauses..." : "Preparing secure upload..."}
-                                </p>
                             </motion.div>
                         )}
                     </AnimatePresence>

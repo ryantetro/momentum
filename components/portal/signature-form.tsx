@@ -11,13 +11,28 @@ import { CheckCircle2 } from "lucide-react"
 
 interface SignatureFormProps {
   bookingId: string
+  client?: {
+    address: string | null
+    city: string | null
+    state: string | null
+    zip: string | null
+    country: string | null
+  } | null
   onSuccess: () => void
 }
 
-export function SignatureForm({ bookingId, onSuccess }: SignatureFormProps) {
+export function SignatureForm({ bookingId, client, onSuccess }: SignatureFormProps) {
   const [clientName, setClientName] = useState("")
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Address state
+  const [address, setAddress] = useState(client?.address || "")
+  const [city, setCity] = useState(client?.city || "")
+  const [state, setState] = useState(client?.state || "")
+  const [zip, setZip] = useState(client?.zip || "")
+  const [country, setCountry] = useState(client?.country || "")
+
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,6 +56,16 @@ export function SignatureForm({ bookingId, onSuccess }: SignatureFormProps) {
       return
     }
 
+    // Validate address if it was missing initially
+    if (!client?.address && (!address || !city || !state || !zip || !country)) {
+      toast({
+        title: "Missing Address",
+        description: "Please complete your address details",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -50,6 +75,13 @@ export function SignatureForm({ bookingId, onSuccess }: SignatureFormProps) {
         body: JSON.stringify({
           bookingId,
           clientName: clientName.trim(),
+          addressDetails: !client?.address ? {
+            address,
+            city,
+            state,
+            zip,
+            country
+          } : undefined
         }),
       })
 
@@ -59,11 +91,11 @@ export function SignatureForm({ bookingId, onSuccess }: SignatureFormProps) {
         throw new Error(data.error || "Failed to sign contract")
       }
 
-      toast({ 
+      toast({
         title: "Contract signed successfully!",
         description: "Your signature has been recorded securely."
       })
-      
+
       // Add a small delay to show success animation before calling onSuccess
       setTimeout(() => {
         onSuccess()
@@ -89,6 +121,68 @@ export function SignatureForm({ bookingId, onSuccess }: SignatureFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Address Fields - Only show if missing */}
+          {!client?.address && (
+            <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-stone-200 mb-4">
+              <h4 className="font-medium text-sm text-stone-700">Billing Address Required</h4>
+              <div className="space-y-2">
+                <Label htmlFor="address">Street Address</Label>
+                <Input
+                  id="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="123 Main St"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="New York"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    placeholder="NY"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="zip">ZIP Code</Label>
+                  <Input
+                    id="zip"
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                    placeholder="10001"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder="United States"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="clientName">Your Full Name *</Label>
             <Input
@@ -191,13 +285,13 @@ export function SignatureForm({ bookingId, onSuccess }: SignatureFormProps) {
               </div>
               <div className="flex items-center gap-1">
                 <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l-2.847 6.015c-.48-.207-1.129-.489-1.691-.756zm-2.95 5.847c-1.44-.75-2.633-1.407-2.633-2.404 0-.622.5-1.095 1.43-1.095 1.728 0 3.457.858 4.726 1.631l-2.847 6.015c-.48-.207-1.129-.489-1.691-.756zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z"/>
+                  <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l-2.847 6.015c-.48-.207-1.129-.489-1.691-.756zm-2.95 5.847c-1.44-.75-2.633-1.407-2.633-2.404 0-.622.5-1.095 1.43-1.095 1.728 0 3.457.858 4.726 1.631l-2.847 6.015c-.48-.207-1.129-.489-1.691-.756zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z" />
                 </svg>
                 <span className="text-xs text-stone-600 font-medium">Visa</span>
               </div>
               <div className="flex items-center gap-1">
                 <svg className="h-5 w-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 1.5c5.799 0 10.5 4.701 10.5 10.5S17.799 22.5 12 22.5 1.5 17.799 1.5 12 6.201 1.5 12 1.5zm5.5 6h-11v9h11v-9zm-1.5 1.5v6h-8v-6h8z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 1.5c5.799 0 10.5 4.701 10.5 10.5S17.799 22.5 12 22.5 1.5 17.799 1.5 12 6.201 1.5 12 1.5zm5.5 6h-11v9h11v-9zm-1.5 1.5v6h-8v-6h8z" />
                 </svg>
                 <span className="text-xs text-stone-600 font-medium">Mastercard</span>
               </div>

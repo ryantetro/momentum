@@ -61,8 +61,17 @@ export function FileUpload({ bookingId }: FileUploadProps) {
       formData.append("file", file)
       formData.append("bookingId", bookingId)
 
+      // Get current session token to ensure auth works
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {}
+
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch("/api/bookings/upload-file", {
         method: "POST",
+        headers,
         body: formData,
       })
 

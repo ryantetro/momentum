@@ -78,3 +78,5 @@ export function SignatureSeal({ booking }: SignatureSealProps) {
   )
 }
 
+
+

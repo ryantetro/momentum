@@ -32,3 +32,5 @@ END $$;
 COMMENT ON COLUMN bookings.service_type IS 'Free-form service type (e.g., Wedding, Sports, Corporate, Portrait, Event, etc.)';
 COMMENT ON COLUMN service_packages.service_type IS 'Free-form service type (e.g., Wedding, Sports, Corporate, Portrait, Event, etc.)';
 
+
+

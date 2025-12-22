@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { GenerateProposalButton } from "@/components/bookings/generate-proposal-button"
 import { ProposalEmailTemplate } from "@/components/bookings/proposal-email-template"
 import { CustomFormBuilder } from "@/components/bookings/custom-form-builder"
+import { ClientFormResponses } from "@/components/bookings/client-form-responses"
 import { FileUpload } from "@/components/bookings/file-upload"
 import { InquiryConversionModal } from "@/components/bookings/inquiry-conversion-modal"
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ import type { Booking, Client } from "@/types"
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { PaymentStatusBadge } from "@/components/bookings/payment-status-badge"
+import { cn, formatDateSafe, parseDateSafe } from "@/lib/utils"
 
 export default function BookingDetailPage() {
   const params = useParams()
@@ -175,11 +177,34 @@ export default function BookingDetailPage() {
   const client = booking.client as Client
 
   // Calculate payment information
-  const totalPaid = booking.payment_milestones?.reduce(
+  // Calculate payment information
+  const status = (booking.payment_status || "").toLowerCase()
+  const milestones = booking.payment_milestones || []
+
+  // Sum up paid milestones
+  const milestonesPaid = milestones.reduce(
     (sum: number, m: any) => (m.status === "paid" ? sum + m.amount : sum),
-    booking.payment_status === "DEPOSIT_PAID" ? (booking.deposit_amount || 0) : 0
+    0
   ) || 0
-  const balanceDue = booking.total_price - totalPaid
+
+  // Check if deposit is already included in milestones
+  const hasPaidDepositMilestone = milestones.some(
+    (m: any) => m.name === "Deposit" && m.status === "paid"
+  )
+
+  // Only add deposit_amount if it's NOT in the milestones
+  const depositPaid = !hasPaidDepositMilestone && (status === "deposit_paid" || status === "paid" || status === "partial")
+    ? (booking.deposit_amount || 0)
+    : 0
+
+  let totalPaid = depositPaid + milestonesPaid
+
+  // If payment status is explicitly 'paid', ensure we show full amount
+  if ((booking.payment_status || "").toLowerCase() === "paid" && totalPaid < booking.total_price) {
+    totalPaid = booking.total_price
+  }
+
+  const balanceDue = Math.max(0, booking.total_price - totalPaid)
   const baseUrl = typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
   const portalUrl = `${baseUrl}/portal/${booking.portal_token}`
 
@@ -207,7 +232,7 @@ export default function BookingDetailPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Booking Details</h1>
             <p className="text-muted-foreground">
-              {client?.name} - {format(new Date(booking.event_date), "MMM d, yyyy")}
+              {client?.name} - {formatDateSafe(booking.event_date)}
             </p>
           </div>
         </div>
@@ -254,6 +279,46 @@ export default function BookingDetailPage() {
         </Card>
       )}
 
+      {/* Completed Booking Banner - Show when fully paid and completed */}
+      {booking.status === "completed" && booking.payment_status === "paid" && (
+        <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                  🎉 Booking Completed!
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  This booking is fully paid and ready for the event. All payments have been received and the contract is signed.
+                </p>
+                <div className="grid gap-3 md:grid-cols-3 mt-4">
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Total Revenue</p>
+                    <p className="text-lg font-semibold text-purple-600">
+                      ${booking.total_price.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Event Date</p>
+                    <p className="text-lg font-semibold">
+                      {formatDateSafe(booking.event_date, "MMM d, yyyy")}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
+                    <p className="text-lg font-semibold text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-4 w-4" />
+                      All Set
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Active Booking Banner - Show when deposit is paid and booking is active */}
       {booking.status === "Active" && booking.payment_status === "DEPOSIT_PAID" && (
         <Card className="border-2 border-green-200 bg-green-50 dark:bg-green-950/20">
@@ -279,10 +344,11 @@ export default function BookingDetailPage() {
                   <div className="p-3 bg-white dark:bg-gray-800 rounded border">
                     <p className="text-xs font-medium text-muted-foreground mb-1">Event Date</p>
                     <p className="text-lg font-semibold">
-                      {format(new Date(booking.event_date), "MMMM d, yyyy")}
+                      {formatDateSafe(booking.event_date, "MMMM d, yyyy")}
                     </p>
                     {(() => {
-                      const eventDate = new Date(booking.event_date)
+                      const eventDate = parseDateSafe(booking.event_date)
+                      if (!eventDate) return null
                       const today = new Date()
                       today.setHours(0, 0, 0, 0)
                       eventDate.setHours(0, 0, 0, 0)
@@ -592,9 +658,15 @@ export default function BookingDetailPage() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Event Date</p>
               <p className="text-lg font-semibold">
-                {format(new Date(booking.event_date), "MMMM d, yyyy")}
+                {formatDateSafe(booking.event_date, "MMMM d, yyyy")}
               </p>
             </div>
+            {booking.event_location && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Event Location</p>
+                <p className="text-lg font-semibold">{booking.event_location}</p>
+              </div>
+            )}
             {booking.deposit_amount && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Deposit Amount</p>
@@ -605,18 +677,10 @@ export default function BookingDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Proposal Generation - Only show if not already sent */}
-      {(booking.status !== "PROPOSAL_SENT" &&
-        booking.status !== "contract_sent" &&
-        booking.status !== "Sent" &&
-        booking.status !== "Active" &&
-        booking.status === "Inquiry") && (
-          <GenerateProposalButton
-            bookingId={bookingId}
-            photographerId={booking.photographer_id}
-            onProposalGenerated={setEmailTemplateData}
-          />
-        )}
+      {/* Client Form Responses */}
+      <ClientFormResponses bookingId={bookingId} />
+
+
 
       {/* Email Template, Custom Form, and Files */}
       {emailTemplateData ? (

@@ -55,3 +55,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Verify
 SELECT 'Minimal trigger function created' as status;
 
+
+

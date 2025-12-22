@@ -40,3 +40,5 @@ CREATE TRIGGER sync_contract_signed_by_trigger
 COMMENT ON COLUMN bookings.contract_signed_by IS 'Legacy column - kept for backward compatibility. Use client_signature_name instead.';
 COMMENT ON COLUMN bookings.client_signature_name IS 'Primary column for storing the client signature name.';
 
+
+

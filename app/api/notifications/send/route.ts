@@ -4,6 +4,7 @@ import {
   getContractSignedEmailTemplate,
   getPaymentReceivedEmailTemplate,
 } from "@/lib/email/templates"
+import { formatDateSafe } from "@/lib/utils"
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
         client.name,
         bookingId,
         booking.service_type,
-        new Date(booking.event_date).toLocaleDateString()
+        formatDateSafe(booking.event_date)
       )
     } else if (type === "payment_received") {
       const milestones = booking.payment_milestones || []
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
 
 
 

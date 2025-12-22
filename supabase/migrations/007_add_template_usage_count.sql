@@ -6,3 +6,5 @@ ADD COLUMN IF NOT EXISTS usage_count INTEGER DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_contract_templates_usage_count 
 ON contract_templates(usage_count);
 
+
+

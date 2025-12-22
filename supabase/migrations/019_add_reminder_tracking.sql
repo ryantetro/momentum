@@ -18,3 +18,5 @@ COMMENT ON COLUMN bookings.reminder_sent_at IS 'Timestamp when the first reminde
 COMMENT ON COLUMN bookings.last_reminder_sent_at IS 'Timestamp when the most recent reminder was sent';
 COMMENT ON COLUMN bookings.reminder_count IS 'Number of reminders sent for this booking';
 
+
+

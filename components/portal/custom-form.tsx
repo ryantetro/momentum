@@ -31,18 +31,22 @@ export function CustomForm({ bookingId, portalToken }: CustomFormProps) {
   useEffect(() => {
     async function loadForm() {
       try {
-        const { data, error } = await supabase
-          .from("client_forms")
-          .select("form_fields, form_data")
-          .eq("booking_id", bookingId)
-          .single()
+        console.log("[Client] Fetching form for token:", portalToken)
+        // Use the API route to fetch form data (public access via token)
+        const response = await fetch(`/api/portal/form/${portalToken}`)
 
-        if (error && error.code !== "PGRST116") {
-          throw error
+        console.log("[Client] API Response status:", response.status)
+
+        if (!response.ok) {
+          throw new Error("Failed to load form")
         }
+
+        const data = await response.json()
+        console.log("[Client] Form data received:", data)
 
         if (data) {
           if (data.form_fields) {
+            console.log("[Client] Setting fields:", data.form_fields.length)
             setFields(data.form_fields as FormField[])
           }
           if (data.form_data) {
@@ -56,8 +60,10 @@ export function CustomForm({ bookingId, portalToken }: CustomFormProps) {
       }
     }
 
-    loadForm()
-  }, [bookingId, supabase])
+    if (portalToken) {
+      loadForm()
+    }
+  }, [portalToken])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

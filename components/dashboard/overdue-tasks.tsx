@@ -9,6 +9,7 @@ import { AlertTriangle, DollarSign } from "lucide-react"
 import Link from "next/link"
 import { format, differenceInDays } from "date-fns"
 import type { Booking, Client } from "@/types"
+import { parseDateSafe } from "@/lib/utils"
 
 export function OverdueTasks() {
   const supabase = createClient()
@@ -179,7 +180,7 @@ export function OverdueTasks() {
         <div className="space-y-3">
           {overdueBookings.map((booking) => {
             const balanceDue = calculateBalanceDue(booking)
-            const eventDate = new Date(booking.event_date)
+            const eventDate = parseDateSafe(booking.event_date)!
             const daysPast = differenceInDays(new Date(), eventDate)
             const clientName = booking.client?.name || "Unknown Client"
 
@@ -221,4 +222,6 @@ export function OverdueTasks() {
     </Card>
   )
 }
+
+
 

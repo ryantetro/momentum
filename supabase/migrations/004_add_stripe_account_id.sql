@@ -6,3 +6,5 @@ ADD COLUMN IF NOT EXISTS stripe_account_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_photographers_stripe_account_id ON photographers(stripe_account_id);
 
 
+
+

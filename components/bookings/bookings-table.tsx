@@ -15,6 +15,7 @@ import { format } from "date-fns"
 import type { Booking } from "@/types"
 import { Eye, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { formatDateSafe } from "@/lib/utils"
 
 interface BookingsTableProps {
   bookings: Booking[]
@@ -50,7 +51,7 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
                 {booking.client?.name || "Unknown"}
               </TableCell>
               <TableCell className="capitalize">{booking.service_type}</TableCell>
-              <TableCell>{format(new Date(booking.event_date), "MMM d, yyyy")}</TableCell>
+              <TableCell>{formatDateSafe(booking.event_date)}</TableCell>
               <TableCell>${booking.total_price.toLocaleString()}</TableCell>
               <TableCell>
                 <BookingStatusBadge status={booking.status} />

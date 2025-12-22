@@ -94,3 +94,5 @@ WHERE trigger_name = 'on_auth_user_created';
 -- Test: This should show the trigger is ready
 SELECT 'Trigger function updated successfully' as status;
 
+
+

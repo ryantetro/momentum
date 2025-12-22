@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/toaster"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2, Sparkles, Copy, Check, Mail, ExternalLink } from "lucide-react"
 import { MilestonesBuilder } from "./milestones-builder"
+import { parseDateSafe, formatDateSafe } from "@/lib/utils"
 import type { Booking, ContractTemplate, PaymentMilestone, ServicePackage } from "@/types"
 import { useRouter } from "next/navigation"
 import { generateStandardMilestones, calculateDepositAmount } from "@/lib/bookings/milestone-helpers"
@@ -164,7 +165,7 @@ export function InquiryConversionModal({
     const selectedPackage = packages.find((pkg) => pkg.id === packageId)
     if (selectedPackage) {
       setTotalPrice(selectedPackage.total_price.toString())
-      
+
       // Calculate deposit amount
       let deposit = 0
       if (selectedPackage.deposit_amount) {
@@ -278,13 +279,13 @@ export function InquiryConversionModal({
 
       // Generate contract with AI
       const clientName = booking.client?.name || "Client"
-      const eventDate = new Date(booking.event_date).toLocaleDateString()
+      const eventDate = formatDateSafe(booking.event_date)
       const serviceType = booking.service_type
       const inquiryMessage = booking.inquiry_message || ""
 
       // Call AI to enhance contract with inquiry details (optional - falls back to base template if fails)
       let finalContractText = baseContractText
-      
+
       if (inquiryMessage) {
         try {
           const aiResponse = await fetch("/api/ai/generate-contract", {
@@ -337,12 +338,12 @@ export function InquiryConversionModal({
       setGeneratedContract(finalContractText)
       setPortalUrl(portalUrlValue)
       setModalState("success")
-      
+
       // Call success callback to refresh parent page
       if (onConversionSuccess) {
         onConversionSuccess()
       }
-      
+
       toast({
         title: "Proposal generated!",
         description: "Your proposal has been created and is ready to send.",
@@ -444,7 +445,7 @@ export function InquiryConversionModal({
                     <p>
                       <span className="text-muted-foreground">Event Date:</span>{" "}
                       <span className="font-medium">
-                        {new Date(booking.event_date).toLocaleDateString()}
+                        {formatDateSafe(booking.event_date)}
                       </span>
                     </p>
                     <p>
@@ -539,7 +540,7 @@ export function InquiryConversionModal({
               </div>
               <div>
                 <span className="text-muted-foreground">Event Date:</span>{" "}
-                {new Date(booking.event_date).toLocaleDateString()}
+                {formatDateSafe(booking.event_date)}
               </div>
               <div>
                 <span className="text-muted-foreground">Service Type:</span>{" "}

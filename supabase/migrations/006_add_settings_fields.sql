@@ -28,3 +28,5 @@ ALTER TABLE photographers
 ADD CONSTRAINT photographers_default_currency_check 
 CHECK (default_currency IN ('USD', 'EUR', 'GBP', 'CAD', 'AUD') OR default_currency IS NULL);
 
+
+

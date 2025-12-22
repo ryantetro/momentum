@@ -89,8 +89,8 @@ export default function ClientsPage() {
           .single()
 
         if (photographerData?.username) {
-          const baseUrl = typeof window !== "undefined" 
-            ? window.location.origin 
+          const baseUrl = typeof window !== "undefined"
+            ? window.location.origin
             : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
           setInquiryUrl(`${baseUrl}/inquiry/${photographerData.username}`)
         }
@@ -118,6 +118,34 @@ export default function ClientsPage() {
     )
     setFilteredClients(filtered)
   }, [searchQuery, clients])
+
+  const refreshClient = async () => {
+    if (!selectedClient) return
+
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", selectedClient.id)
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        // Update the client in the clients list
+        setClients(prevClients =>
+          prevClients.map(c => c.id === data.id ? { ...c, ...data } : c)
+        )
+        setFilteredClients(prevClients =>
+          prevClients.map(c => c.id === data.id ? { ...c, ...data } : c)
+        )
+        // Update the selected client
+        setSelectedClient(prev => prev ? { ...prev, ...data } : null)
+      }
+    } catch (error) {
+      console.error("Error refreshing client:", error)
+    }
+  }
 
   if (loading) {
     return (
@@ -158,8 +186,8 @@ export default function ClientsPage() {
       {filteredClients.length === 0 ? (
         <ClientsEmptyState inquiryUrl={inquiryUrl} />
       ) : (
-        <ClientsTable 
-          clients={filteredClients} 
+        <ClientsTable
+          clients={filteredClients}
           onClientClick={setSelectedClient}
         />
       )}
@@ -168,6 +196,7 @@ export default function ClientsPage() {
           client={selectedClient}
           open={!!selectedClient}
           onOpenChange={(open) => !open && setSelectedClient(null)}
+          onClientUpdate={refreshClient}
         />
       )}
     </div>

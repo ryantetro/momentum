@@ -14,6 +14,12 @@ export interface Photographer {
   logo_url: string | null
   website: string | null
   social_links: Record<string, string> | null
+  // Address
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  country: string | null
   // Payment settings
   default_currency: string | null
   pass_fees_to_client: boolean | null
@@ -33,6 +39,11 @@ export interface Client {
   name: string
   email: string
   phone: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  country: string | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -72,6 +83,7 @@ export interface Booking {
   last_reminder_sent: string | null
   portal_token: string
   inquiry_message: string | null
+  event_location: string | null
   status: "draft" | "contract_sent" | "contract_signed" | "payment_pending" | "completed" | "PROPOSAL_SENT" | "Inquiry" | "Active" | "Sent"
   stripe_payment_intent_id: string | null
   created_at: string

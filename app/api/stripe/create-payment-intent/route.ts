@@ -60,12 +60,10 @@ export async function POST(request: NextRequest) {
         ? parseFloat(booking.deposit_amount.toString())
         : (typeof booking.total_price === 'number' ? booking.total_price : parseFloat(booking.total_price.toString())) * 0.2
 
-      // Calculate amounts
-      const momentumFee = depositAmount * TRANSACTION_FEE_PERCENTAGE // 3.5% Momentum platform fee
-      // Client pays: depositAmount + momentumFee (total amount)
-      // Photographer receives: depositAmount (exactly what they invoiced)
-      // Platform receives: momentumFee
-      const totalAmount = depositAmount + momentumFee
+      // Calculate amounts using inverse formula: Total = Amount / (1 - Fee)
+      // This ensures that after Stripe/Platform take their cut, the photographer gets exactly depositAmount
+      const totalAmount = depositAmount / (1 - TRANSACTION_FEE_PERCENTAGE)
+      const momentumFee = totalAmount - depositAmount // Momentum platform fee is the difference
 
       // Create Stripe Checkout Session with Stripe Connect Direct Charges
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -175,13 +173,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate amounts
+    // Calculate amounts using inverse formula: Total = Amount / (1 - Fee)
+    // This ensures that after Stripe/Platform take their cut, the photographer gets exactly milestoneAmount
     const milestoneAmount = milestone.amount // Base amount photographer should receive
-    const momentumFee = milestoneAmount * TRANSACTION_FEE_PERCENTAGE // 3.5% Momentum platform fee
-    // Client pays: milestoneAmount + momentumFee (total amount)
-    // Photographer receives: milestoneAmount (exactly what they invoiced)
-    // Platform receives: momentumFee
-    const totalAmount = milestoneAmount + momentumFee
+    const totalAmount = milestoneAmount / (1 - TRANSACTION_FEE_PERCENTAGE)
+    const momentumFee = totalAmount - milestoneAmount // Momentum platform fee is the difference
 
     // Create Stripe Checkout Session with Stripe Connect Direct Charges
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {

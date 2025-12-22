@@ -16,8 +16,8 @@ export function PaymentSection({ booking }: PaymentSectionProps) {
   const { toast } = useToast()
 
   const depositAmount = booking.deposit_amount ?? (booking.total_price * 0.2)
-  const transactionFee = depositAmount * 0.035 // 3.5% fee
-  const totalAmount = depositAmount + transactionFee
+  const totalAmount = depositAmount / (1 - 0.035)
+  const transactionFee = totalAmount - depositAmount // 3.5% fee calculated inversely
 
   const handlePayment = async () => {
     setProcessing(true)

@@ -7,11 +7,12 @@ interface StatsCardsProps {
   totalClients: number
   totalBookings: number
   pendingPayments: number
+  totalRevenue?: number
   projectedRevenue?: number
   overdueRevenue?: number
 }
 
-export function StatsCards({ totalClients, totalBookings, pendingPayments, projectedRevenue = 0, overdueRevenue = 0 }: StatsCardsProps) {
+export function StatsCards({ totalClients, totalBookings, pendingPayments, totalRevenue = 0, projectedRevenue = 0, overdueRevenue = 0 }: StatsCardsProps) {
   const stats = [
     {
       title: "Total Clients",
@@ -33,6 +34,15 @@ export function StatsCards({ totalClients, totalBookings, pendingPayments, proje
       })}`,
       icon: DollarSign,
       description: "Outstanding amount",
+    },
+    {
+      title: "Total Revenue",
+      value: `$${totalRevenue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      icon: DollarSign,
+      description: "All time",
     },
     {
       title: "Projected Revenue",

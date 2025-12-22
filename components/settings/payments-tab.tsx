@@ -215,7 +215,7 @@ export function PaymentsTab() {
                     Pass transaction fees to client?
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    When enabled, the 3.5% transaction fee is added to the client's total. When
+                    When enabled, the 3.5% platform fee is added to the client's total, ensuring you receive 100% of your base price. When
                     disabled, the fee is deducted from your payout.
                   </p>
                 </div>
@@ -259,4 +259,6 @@ export function PaymentsTab() {
     </div>
   )
 }
+
+
 
