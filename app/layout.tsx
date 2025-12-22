@@ -40,6 +40,29 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://momentum-app.vercel.app',
+    title: 'Momentum - Photography Business Management',
+    description: 'Streamline your photography business with smart contracts, automated payments, and client portals',
+    siteName: 'Momentum',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Momentum - Photography Business Management Platform',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Momentum - Photography Business Management',
+    description: 'Streamline your photography business with smart contracts, automated payments, and client portals',
+    images: ['/og-image.png'],
+    creator: '@ryantetro',
+  },
 }
 
 export default function RootLayout({
